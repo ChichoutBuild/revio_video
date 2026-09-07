@@ -1,0 +1,13 @@
+{
+  "name": "Application de validation vidéo",
+  "short_name": "ValidationVideo",
+  "description": "Plateforme de vérification vidéo pour créateurs et équipes",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f5f9",
+  "theme_color": "#3730a3",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
