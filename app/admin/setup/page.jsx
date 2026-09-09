@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 export default function AdminSetupPage() {
   const [name, setName] = useState('');
+  const [setupSecret, setSetupSecret] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -16,7 +17,7 @@ export default function AdminSetupPage() {
       const res = await fetch('/api/org/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationName: name }),
+        body: JSON.stringify({ organizationName: name, setupSecret }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -35,15 +36,17 @@ export default function AdminSetupPage() {
     <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h1>Créer une organisation</h1>
       <p className="muted">
-        ⚠️ Page temporaire, non protégée par un système de permissions (arrive au Sprint 3). Pour
-        l&apos;instant, ne partage l&apos;adresse de cette page avec personne.
+        Protégé par un secret de configuration (ADMIN_SETUP_SECRET) — celui que toi seul connais.
       </p>
 
       <div className="card">
+        <label>Secret de configuration</label>
+        <input type="password" value={setupSecret} onChange={(e) => setSetupSecret(e.target.value)} />
+        <div style={{ height: 12 }} />
         <label>Nom de l&apos;organisation</label>
         <div className="row">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mon studio vidéo" />
-          <button onClick={handleCreate} disabled={loading || !name}>
+          <button onClick={handleCreate} disabled={loading || !name || !setupSecret}>
             {loading ? 'Création...' : 'Créer'}
           </button>
         </div>

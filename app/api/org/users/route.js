@@ -2,11 +2,14 @@ import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { hashSecret, generateActivationCode } from '../../../../lib/authHash';
+import { getRequestUser } from '../../../../lib/getRequestUser';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// ⚠️ TEMPORAIRE : pas encore protégé par permission (arrivera au Sprint 3
-// avec has_permission). Ne partage pas l'adresse /admin/users pour l'instant.
+// Règle : le tout premier utilisateur d'une organisation peut être créé sans
+// être connecté (bootstrap — il n'y a encore personne pour l'autoriser), et
+// reçoit automatiquement le rôle ADMIN. Tous les suivants exigent un appelant
+// authentifié possédant la permission USERS_CREATE.
 export async function POST(request) {
   if (!supabaseAdmin) {
     return NextResponse.json({ error: 'Configuration serveur incomplète.' }, { status: 500 });
@@ -27,6 +30,39 @@ export async function POST(request) {
   }
   if (!displayName || displayName.length > 200) {
     return NextResponse.json({ error: 'Nom invalide (1 à 200 caractères).' }, { status: 400 });
+  }
+
+  let existingCount = 0;
+  try {
+    const { count } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId);
+    existingCount = count || 0;
+  } catch (e) {
+    return NextResponse.json({ error: 'Service momentanément indisponible, réessaie plus tard.' }, { status: 503 });
+  }
+
+  const isBootstrap = existingCount === 0;
+
+  if (!isBootstrap) {
+    const actor = await getRequestUser(request, supabaseAdmin);
+    if (!actor) {
+      return NextResponse.json({ error: 'Connexion requise.' }, { status: 401 });
+    }
+    let allowed = false;
+    try {
+      const { data } = await supabaseAdmin.rpc('has_permission', {
+        p_user_id: actor.id,
+        p_permission_code: 'USERS_CREATE',
+      });
+      allowed = data === true;
+    } catch (e) {
+      return NextResponse.json({ error: 'Service momentanément indisponible, réessaie plus tard.' }, { status: 503 });
+    }
+    if (!allowed) {
+      return NextResponse.json({ error: 'Permission refusée.' }, { status: 403 });
+    }
   }
 
   // Email synthétique interne, jamais réellement envoyé — domaine réservé
@@ -75,6 +111,24 @@ export async function POST(request) {
     return NextResponse.json({ error: "Impossible de créer l'utilisateur (organisation introuvable ?)." }, { status: 400 });
   }
 
+  // Bootstrap : le tout premier utilisateur de l'organisation reçoit
+  // automatiquement le rôle ADMIN (créé lors de /api/org/setup).
+  if (isBootstrap) {
+    try {
+      const { data: adminRole } = await supabaseAdmin
+        .from('roles')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .eq('name', 'ADMIN')
+        .maybeSingle();
+      if (adminRole) {
+        await supabaseAdmin.from('user_roles').insert({ user_id: userRow.id, role_id: adminRole.id });
+      }
+    } catch (e) {
+      console.error("Erreur non bloquante lors de l'attribution du rôle ADMIN :", e);
+    }
+  }
+
   const plainCode = generateActivationCode();
   let codeHash;
   try {
@@ -104,5 +158,6 @@ export async function POST(request) {
     displayName: userRow.display_name,
     activationCode: plainCode,
     expiresAt,
+    wasBootstrapAdmin: isBootstrap,
   });
 }

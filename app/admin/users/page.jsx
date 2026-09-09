@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
 
 export default function AdminUsersPage() {
   const [organizationId, setOrganizationId] = useState('');
@@ -14,9 +15,19 @@ export default function AdminUsersPage() {
     setError(null);
     setResult(null);
     try {
+      const headers = { 'Content-Type': 'application/json' };
+
+      // Si une session existe, on l'envoie — nécessaire pour tout utilisateur
+      // au-delà du tout premier de l'organisation (voir /api/org/users).
+      if (supabase) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (token) headers.Authorization = `Bearer ${token}`;
+      }
+
       const res = await fetch('/api/org/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ organizationId, displayName }),
       });
       const json = await res.json();
@@ -36,7 +47,9 @@ export default function AdminUsersPage() {
     <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h1>Créer un utilisateur</h1>
       <p className="muted">
-        ⚠️ Page temporaire, non protégée (arrive au Sprint 3). Ne partage pas cette adresse.
+        Le premier utilisateur d&apos;une organisation peut être créé sans connexion (il devient
+        automatiquement ADMIN). Pour tous les suivants, il faut être connecté (via{' '}
+        <a href="/activate">/activate</a>) avec la permission USERS_CREATE.
       </p>
 
       <div className="card">
@@ -62,6 +75,7 @@ export default function AdminUsersPage() {
         <div className="card">
           <p>
             ✅ Utilisateur créé : <strong>{result.displayName}</strong>
+            {result.wasBootstrapAdmin && ' (rôle ADMIN attribué automatiquement)'}
           </p>
           <p>Code d&apos;activation (à transmettre, valable 72h, usage unique) :</p>
           <p style={{ fontFamily: 'monospace', fontSize: 20, background: '#f4f5f9', padding: 8, borderRadius: 6 }}>
