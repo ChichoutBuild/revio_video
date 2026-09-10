@@ -272,59 +272,68 @@ export default function VideoDetailPage() {
       <div className="card">
         <p style={{ fontWeight: 600, marginTop: 0 }}>Ajouter un retour</p>
 
-        <div className="row wrap" style={{ marginBottom: 12 }}>
-          {['GLOBAL', 'TIMECODE', 'RANGE'].map((t) => (
-            <button
-              key={t}
-              onClick={() => setFeedbackType(t)}
-              style={{ background: feedbackType === t ? '#3730a3' : '#e2e2ec', color: feedbackType === t ? 'white' : '#1c1c28' }}
+        {categories.length === 0 ? (
+          <p className="error">
+            Aucune catégorie de retour configurée pour ton organisation. Demande à ton administrateur
+            d&apos;exécuter le script <code>supabase/005_backfill_feedback_categories.sql</code>.
+          </p>
+        ) : (
+          <>
+            <div className="row wrap" style={{ marginBottom: 12 }}>
+              {['GLOBAL', 'TIMECODE', 'RANGE'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setFeedbackType(t)}
+                  style={{ background: feedbackType === t ? '#3730a3' : '#e2e2ec', color: feedbackType === t ? 'white' : '#1c1c28' }}
+                >
+                  {t === 'GLOBAL' ? 'Global' : t === 'TIMECODE' ? 'Timecode' : 'Plage'}
+                </button>
+              ))}
+            </div>
+
+            {feedbackType === 'TIMECODE' && (
+              <p className="muted">Le retour sera positionné à la position actuelle du lecteur au moment de l&apos;envoi.</p>
+            )}
+
+            {feedbackType === 'RANGE' && (
+              <div className="row wrap" style={{ marginBottom: 12 }}>
+                <button onClick={() => setRangeStart(Math.floor(getCurrentTime()))}>
+                  Marquer début {rangeStart !== null ? `(${fmt(rangeStart)})` : ''}
+                </button>
+                <button onClick={() => setRangeEnd(Math.floor(getCurrentTime()))}>
+                  Marquer fin {rangeEnd !== null ? `(${fmt(rangeEnd)})` : ''}
+                </button>
+              </div>
+            )}
+
+            <label>Catégorie</label>
+            <select
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 12 }}
             >
-              {t === 'GLOBAL' ? 'Global' : t === 'TIMECODE' ? 'Timecode' : 'Plage'}
-            </button>
-          ))}
-        </div>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon} {c.name}
+                </option>
+              ))}
+            </select>
 
-        {feedbackType === 'TIMECODE' && (
-          <p className="muted">Le retour sera positionné à la position actuelle du lecteur au moment de l&apos;envoi.</p>
+            <label>Commentaire</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={3}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
+            />
+
+            <div style={{ height: 12 }} />
+            <button onClick={handleSubmitFeedback} disabled={submitting}>
+              {submitting ? 'Envoi...' : 'Envoyer le retour'}
+            </button>
+            {submitError && <p className="error">{submitError}</p>}
+          </>
         )}
-
-        {feedbackType === 'RANGE' && (
-          <div className="row wrap" style={{ marginBottom: 12 }}>
-            <button onClick={() => setRangeStart(Math.floor(getCurrentTime()))}>
-              Marquer début {rangeStart !== null ? `(${fmt(rangeStart)})` : ''}
-            </button>
-            <button onClick={() => setRangeEnd(Math.floor(getCurrentTime()))}>
-              Marquer fin {rangeEnd !== null ? `(${fmt(rangeEnd)})` : ''}
-            </button>
-          </div>
-        )}
-
-        <label>Catégorie</label>
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 12 }}
-        >
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.icon} {c.name}
-            </option>
-          ))}
-        </select>
-
-        <label>Commentaire</label>
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={3}
-          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
-        />
-
-        <div style={{ height: 12 }} />
-        <button onClick={handleSubmitFeedback} disabled={submitting}>
-          {submitting ? 'Envoi...' : 'Envoyer le retour'}
-        </button>
-        {submitError && <p className="error">{submitError}</p>}
       </div>
 
       <div>
