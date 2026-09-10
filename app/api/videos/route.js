@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 import { getRequestUser } from '../../../lib/getRequestUser';
+import { parseYoutubeVideoId } from '../../../lib/youtube';
 
 export async function POST(request) {
   if (!supabaseAdmin) {
@@ -37,6 +38,14 @@ export async function POST(request) {
   const category = body.category === 'SHORT' ? 'SHORT' : 'LONG';
   if (!name || name.length > 200) {
     return NextResponse.json({ error: 'Nom invalide (1 à 200 caractères).' }, { status: 400 });
+  }
+
+  const youtubeId = parseYoutubeVideoId(body.youtubeInput || '');
+  if (!youtubeId) {
+    return NextResponse.json(
+      { error: "Lien ou ID YouTube invalide. Colle l'URL complète de la vidéo non répertoriée, ou juste son ID." },
+      { status: 400 }
+    );
   }
 
   // L'organisation n'est jamais fournie par le client : elle est déduite du
@@ -88,6 +97,18 @@ export async function POST(request) {
     await supabaseAdmin.from('videos').update({ current_version_id: version.id }).eq('id', video.id);
   } catch (e) {
     console.error('Erreur non bloquante (current_version_id) :', e);
+  }
+
+  let sourceError;
+  try {
+    ({ error: sourceError } = await supabaseAdmin
+      .from('video_sources')
+      .insert({ video_version_id: version.id, type: 'YOUTUBE', external_id: youtubeId }));
+  } catch (e) {
+    sourceError = e;
+  }
+  if (sourceError) {
+    return NextResponse.json({ error: 'Service momentanément indisponible, réessaie plus tard.' }, { status: 503 });
   }
 
   // Accès par défaut : toute l'équipe. L'assignation fine (rôle/utilisateur/

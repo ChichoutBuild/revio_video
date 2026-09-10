@@ -69,12 +69,14 @@ export default function VideosListPage() {
 
       {videos &&
         videos.map((v) => (
-          <div className="card" key={v.id}>
-            <p style={{ fontWeight: 600, margin: 0 }}>{v.name}</p>
-            <p className="muted" style={{ margin: '4px 0 0' }}>
-              {v.category} · V{v.version?.version_number ?? '?'} · {v.version?.status ?? '—'}
-            </p>
-          </div>
+          <a href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="card">
+              <p style={{ fontWeight: 600, margin: 0 }}>{v.name}</p>
+              <p className="muted" style={{ margin: '4px 0 0' }}>
+                {v.category} · V{v.version?.version_number ?? '?'} · {v.version?.status ?? '—'}
+              </p>
+            </div>
+          </a>
         ))}
     </main>
   );

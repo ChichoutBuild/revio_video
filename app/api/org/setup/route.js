@@ -122,6 +122,18 @@ export async function POST(request) {
     console.error('Erreur non bloquante lors de la création des rôles par défaut :', e);
   }
 
+  // Crée les 4 catégories de retours par défaut de l'organisation.
+  try {
+    await supabaseAdmin.from('feedback_categories').insert([
+      { organization_id: org.id, name: 'Conseil', color: '#3B82F6', icon: '💡', sort_order: 1, is_blocking: false },
+      { organization_id: org.id, name: 'Modification', color: '#F59E0B', icon: '🟡', sort_order: 2, is_blocking: false },
+      { organization_id: org.id, name: 'Bloquant', color: '#EF4444', icon: '🔴', sort_order: 3, is_blocking: true },
+      { organization_id: org.id, name: 'Point fort', color: '#10B981', icon: '🟢', sort_order: 4, is_blocking: false },
+    ]);
+  } catch (e) {
+    console.error('Erreur non bloquante lors de la création des catégories par défaut :', e);
+  }
+
   // Le token en clair n'est renvoyé qu'une seule fois, ici — jamais stocké
   // ailleurs qu'en version hashée en base.
   return NextResponse.json({

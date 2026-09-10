@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabaseClient';
 export default function NewVideoPage() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('LONG');
+  const [youtubeInput, setYoutubeInput] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -31,7 +32,7 @@ export default function NewVideoPage() {
       const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, category }),
+        body: JSON.stringify({ name, category, youtubeInput }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -50,8 +51,31 @@ export default function NewVideoPage() {
     <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h1>Nouvelle vidéo</h1>
 
+      <div className="card" style={{ background: '#eef0ff', borderColor: '#c7cbfa' }}>
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Comment obtenir le lien de ta vidéo ?</p>
+        <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
+          <li>
+            Mets ta vidéo en ligne sur YouTube (via un compte YouTube existant — pas besoin d&apos;en
+            créer un spécifique pour l&apos;app)
+          </li>
+          <li>
+            Au moment de la publication, choisis la visibilité <strong>« Non répertoriée »</strong>{' '}
+            (pas « Publique », pas « Privée »)
+          </li>
+          <li>Une fois en ligne, copie le lien de la vidéo (bouton « Partager »)</li>
+          <li>
+            Colle-le ci-dessous — tu peux coller le lien complet ou juste les 11 derniers caractères
+            après <code>v=</code>
+          </li>
+        </ol>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Une vidéo « non répertoriée » n&apos;apparaît jamais dans les résultats de recherche ni sur
+          ta chaîne — seules les personnes ayant le lien exact peuvent la voir.
+        </p>
+      </div>
+
       <div className="card">
-        <label>Nom</label>
+        <label>Nom de la vidéo (interne à l&apos;app)</label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ma nouvelle vidéo" />
         <div style={{ height: 12 }} />
         <label>Catégorie</label>
@@ -64,7 +88,14 @@ export default function NewVideoPage() {
           <option value="SHORT">Short</option>
         </select>
         <div style={{ height: 12 }} />
-        <button onClick={handleCreate} disabled={loading || !name}>
+        <label>Lien ou ID YouTube (vidéo non répertoriée)</label>
+        <input
+          value={youtubeInput}
+          onChange={(e) => setYoutubeInput(e.target.value)}
+          placeholder="https://youtube.com/watch?v=ukBnae57lb4 ou ukBnae57lb4"
+        />
+        <div style={{ height: 12 }} />
+        <button onClick={handleCreate} disabled={loading || !name || !youtubeInput}>
           {loading ? 'Création...' : 'Créer'}
         </button>
       </div>
@@ -77,7 +108,8 @@ export default function NewVideoPage() {
             ✅ Vidéo créée : <strong>{result.name}</strong>
           </p>
           <p>
-            <a href="/videos">Voir la liste des vidéos</a>
+            <a href={`/videos/${result.videoId}`}>Ouvrir la vidéo</a> ·{' '}
+            <a href="/videos">Voir la liste</a>
           </p>
         </div>
       )}
