@@ -9,6 +9,26 @@ function fmt(seconds) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
+const STATUS_LABELS = {
+  BROUILLON: 'Brouillon',
+  A_VERIFIER: 'À vérifier',
+  EN_VERIFICATION: 'En vérification',
+  MODIFICATIONS_DEMANDEES: 'Modifications demandées',
+  APPROUVEE: 'Approuvée',
+  PUBLIEE: 'Publiée',
+  ARCHIVEE: 'Archivée',
+};
+
+const NEXT_TRANSITIONS = {
+  BROUILLON: ['A_VERIFIER'],
+  A_VERIFIER: ['EN_VERIFICATION'],
+  EN_VERIFICATION: ['MODIFICATIONS_DEMANDEES', 'APPROUVEE'],
+  MODIFICATIONS_DEMANDEES: ['EN_VERIFICATION'],
+  APPROUVEE: ['PUBLIEE'],
+  PUBLIEE: ['ARCHIVEE'],
+  ARCHIVEE: [],
+};
+
 export default function VideoDetailPage() {
   const { id } = useParams();
   const playerRef = useRef(null);
@@ -225,7 +245,27 @@ export default function VideoDetailPage() {
     }
   }
 
+  const [transitioning, setTransitioning] = useState(false);
+
+  async function handleTransition(newStatus) {
+    if (!sessionToken) return;
+    setTransitioning(true);
+    const res = await fetch(`/api/videos/${id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ newStatus }),
+    });
+    const json = await res.json();
+    setTransitioning(false);
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    setVersion((v) => ({ ...v, status: json.status }));
+  }
+
   const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
+  const blockingCount = feedbackList.filter((f) => f.status === 'OPEN' && categoryById[f.category_id]?.is_blocking).length;
 
   // --- Rendu ----------------------------------------------------------------
   if (notLoggedIn) {
@@ -260,6 +300,31 @@ export default function VideoDetailPage() {
         <h1 style={{ marginBottom: 4 }}>{video.name}</h1>
         <p className="muted">
           {video.category} · V{version?.version_number} · {version?.status}
+        </p>
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <p style={{ fontWeight: 600, margin: 0 }}>Statut : {STATUS_LABELS[version?.status] || version?.status}</p>
+            {blockingCount > 0 && (
+              <p style={{ color: '#c0392b', margin: '4px 0 0', fontWeight: 600 }}>
+                ⚠ {blockingCount} retour{blockingCount > 1 ? 's' : ''} bloquant{blockingCount > 1 ? 's' : ''} non résolu
+                {blockingCount > 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          <div className="row wrap">
+            {(NEXT_TRANSITIONS[version?.status] || []).map((nextStatus) => (
+              <button key={nextStatus} onClick={() => handleTransition(nextStatus)} disabled={transitioning}>
+                → {STATUS_LABELS[nextStatus]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+          La présence de retours bloquants n&apos;empêche jamais techniquement une transition — c&apos;est
+          une information, la décision reste toujours manuelle.
         </p>
       </div>
 
