@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../../../../lib/supabaseAdmin';
 import { getRequestUser } from '../../../../lib/getRequestUser';
 
 const CHECKED_CODES = [
-  'USERS_CREATE', 'USERS_VIEW', 'VIDEOS_CREATE', 'VIDEOS_VIEW',
+  'USERS_CREATE', 'USERS_VIEW', 'VIDEOS_CREATE', 'VIDEOS_VIEW', 'VIDEOS_ASSIGN',
   'FEEDBACK_RESOLVE', 'ROLES_MANAGE', 'SETTINGS_MANAGE',
 ];
 

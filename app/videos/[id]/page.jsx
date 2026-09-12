@@ -65,6 +65,7 @@ export default function VideoDetailPage() {
   const [videoAccess, setVideoAccess] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedGroupToAdd, setSelectedGroupToAdd] = useState('');
+  const [canAssign, setCanAssign] = useState(false);
 
   const [history, setHistory] = useState([]);
   const [usersById, setUsersById] = useState({});
@@ -117,6 +118,12 @@ export default function VideoDetailPage() {
 
       const { data: groupRows } = await supabase.from('user_groups').select('id, name, is_auto').order('name');
       setGroups(groupRows || []);
+
+      const permRes = await fetch('/api/debug/my-permissions', {
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+      });
+      const permJson = await permRes.json();
+      setCanAssign(permJson?.permissions?.VIDEOS_ASSIGN === true);
 
       const versionIds = (versionRows || []).map((v) => v.id);
       const entityFilters = [`entity_id.eq.${id}`, ...versionIds.map((vid) => `entity_id.eq.${vid}`)];
@@ -336,11 +343,14 @@ export default function VideoDetailPage() {
   // --- Accès / vérificateurs -------------------------------------------------
   async function handleAddGroupAccess() {
     if (!selectedGroupToAdd) return;
-    const { error } = await supabase
-      .from('video_access')
-      .insert({ video_id: id, scope_type: 'GROUP', group_id: selectedGroupToAdd });
-    if (error) {
-      alert(`Impossible d'ajouter cet accès : ${error.message}`);
+    const res = await fetch(`/api/videos/${id}/access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ groupId: selectedGroupToAdd }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
       return;
     }
     const { data: accessRows } = await supabase.from('video_access').select('id, scope_type, group_id').eq('video_id', id);
@@ -349,9 +359,14 @@ export default function VideoDetailPage() {
   }
 
   async function handleRemoveAccess(accessId) {
-    const { error } = await supabase.from('video_access').delete().eq('id', accessId);
-    if (error) {
-      alert(`Impossible de retirer cet accès : ${error.message}`);
+    const res = await fetch(`/api/videos/${id}/access`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ accessId }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
       return;
     }
     setVideoAccess((rows) => rows.filter((r) => r.id !== accessId));
@@ -461,32 +476,42 @@ export default function VideoDetailPage() {
               style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}
             >
               {a.scope_type === 'ALL_TEAM' ? "Toute l'équipe" : groupById[a.group_id]?.name || 'Groupe'}
-              <button onClick={() => handleRemoveAccess(a.id)} style={{ background: 'transparent', color: '#c0392b', padding: 0 }}>
-                ✕
-              </button>
+              {canAssign && (
+                <button onClick={() => handleRemoveAccess(a.id)} style={{ background: 'transparent', color: '#c0392b', padding: 0 }}>
+                  ✕
+                </button>
+              )}
             </span>
           ))}
         </div>
-        <div className="row">
-          <select
-            value={selectedGroupToAdd}
-            onChange={(e) => setSelectedGroupToAdd(e.target.value)}
-            style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
-          >
-            <option value="">Ajouter un groupe...</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-          <button onClick={handleAddGroupAccess} disabled={!selectedGroupToAdd}>
-            Ajouter
-          </button>
-        </div>
-        <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
-          Gère les groupes eux-mêmes (créer, ajouter des membres) depuis <a href="/admin/groups">/admin/groups</a>.
-        </p>
+        {canAssign ? (
+          <>
+            <div className="row">
+              <select
+                value={selectedGroupToAdd}
+                onChange={(e) => setSelectedGroupToAdd(e.target.value)}
+                style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+              >
+                <option value="">Ajouter un groupe...</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              <button onClick={handleAddGroupAccess} disabled={!selectedGroupToAdd}>
+                Ajouter
+              </button>
+            </div>
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+              Gère les groupes eux-mêmes (créer, ajouter des membres) depuis <a href="/admin/groups">/admin/groups</a>.
+            </p>
+          </>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Tu n&apos;as pas la permission de modifier les vérificateurs assignés (VIDEOS_ASSIGN).
+          </p>
+        )}
       </div>
 
       <div className="card">

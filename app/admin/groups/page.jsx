@@ -6,10 +6,12 @@ import { supabase } from '../../../lib/supabaseClient';
 export default function AdminGroupsPage() {
   const [groups, setGroups] = useState(null);
   const [orgUsers, setOrgUsers] = useState([]);
-  const [members, setMembers] = useState({}); // groupId -> [user_id]
+  const [members, setMembers] = useState({});
   const [newGroupName, setNewGroupName] = useState('');
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionToken, setSessionToken] = useState(null);
+  const [canManage, setCanManage] = useState(null); // null = pas encore vérifié
 
   async function loadAll() {
     if (!supabase) {
@@ -21,6 +23,12 @@ export default function AdminGroupsPage() {
       setNotLoggedIn(true);
       return;
     }
+    const token = sessionData.session.access_token;
+    setSessionToken(token);
+
+    const permRes = await fetch('/api/debug/my-permissions', { headers: { Authorization: `Bearer ${token}` } });
+    const permJson = await permRes.json();
+    setCanManage(permJson?.permissions?.ROLES_MANAGE === true);
 
     const { data: groupRows, error: groupsError } = await supabase
       .from('user_groups')
@@ -33,10 +41,7 @@ export default function AdminGroupsPage() {
     }
     setGroups(groupRows || []);
 
-    const { data: userRows } = await supabase
-      .from('users')
-      .select('id, display_name, status')
-      .order('display_name', { ascending: true });
+    const { data: userRows } = await supabase.from('users').select('id, display_name, status').order('display_name');
     setOrgUsers(userRows || []);
 
     if (groupRows && groupRows.length) {
@@ -60,21 +65,14 @@ export default function AdminGroupsPage() {
 
   async function handleCreateGroup() {
     if (!newGroupName.trim()) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    // organization_id n'est pas dans le JWT — on le récupère via la ligne
-    // "users" de l'utilisateur connecté.
-    const { data: me } = await supabase
-      .from('users')
-      .select('organization_id')
-      .eq('id', sessionData.session.user.id)
-      .single();
-
-    const { error: insertError } = await supabase
-      .from('user_groups')
-      .insert({ organization_id: me.organization_id, name: newGroupName.trim() });
-
-    if (insertError) {
-      alert(`Impossible de créer le groupe : ${insertError.message}`);
+    const res = await fetch('/api/admin/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ name: newGroupName.trim() }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
       return;
     }
     setNewGroupName('');
@@ -82,24 +80,15 @@ export default function AdminGroupsPage() {
   }
 
   async function toggleMember(groupId, userId, isMember) {
-    if (isMember) {
-      const { error: delError } = await supabase
-        .from('user_group_members')
-        .delete()
-        .eq('group_id', groupId)
-        .eq('user_id', userId);
-      if (delError) {
-        alert(`Impossible de retirer ce membre : ${delError.message}`);
-        return;
-      }
-    } else {
-      const { error: insError } = await supabase
-        .from('user_group_members')
-        .insert({ group_id: groupId, user_id: userId });
-      if (insError) {
-        alert(`Impossible d'ajouter ce membre : ${insError.message}`);
-        return;
-      }
+    const res = await fetch(`/api/admin/groups/${groupId}/members`, {
+      method: isMember ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ userId }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
+      return;
     }
     await loadAll();
   }
@@ -119,6 +108,17 @@ export default function AdminGroupsPage() {
     return (
       <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
         <p className="error">{error}</p>
+      </main>
+    );
+  }
+  if (canManage === false) {
+    return (
+      <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
+        <div className="card">
+          <p className="error">
+            Tu n&apos;as pas la permission de gérer les groupes de vérificateurs (ROLES_MANAGE).
+          </p>
+        </div>
       </main>
     );
   }

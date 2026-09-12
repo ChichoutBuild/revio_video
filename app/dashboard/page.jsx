@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [rows, setRows] = useState(null);
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [error, setError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     async function run() {
@@ -62,6 +63,12 @@ export default function DashboardPage() {
           }
         });
       }
+
+      const { count: unread } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_read', false);
+      setUnreadCount(unread || 0);
 
       setRows(
         (videos || []).map((v) => ({
@@ -111,9 +118,16 @@ export default function DashboardPage() {
     <main style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Dashboard</h1>
-        <a href="/videos/new">
-          <button>+ Nouvelle vidéo</button>
-        </a>
+        <div className="row">
+          <a href="/notifications">
+            <button style={{ background: unreadCount > 0 ? '#c0392b' : '#e2e2ec', color: unreadCount > 0 ? 'white' : '#1c1c28' }}>
+              🔔 {unreadCount > 0 ? unreadCount : ''}
+            </button>
+          </a>
+          <a href="/videos/new">
+            <button>+ Nouvelle vidéo</button>
+          </a>
+        </div>
       </div>
 
       <div className="row wrap">
