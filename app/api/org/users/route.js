@@ -24,6 +24,7 @@ export async function POST(request) {
 
   const organizationId = (body.organizationId || '').trim();
   const displayName = (body.displayName || '').trim();
+  const requestedRole = body.role === 'ADMIN' ? 'ADMIN' : 'VERIFICATEUR';
 
   if (!UUID_REGEX.test(organizationId)) {
     return NextResponse.json({ error: "ID d'organisation invalide." }, { status: 400 });
@@ -112,21 +113,37 @@ export async function POST(request) {
   }
 
   // Bootstrap : le tout premier utilisateur de l'organisation reçoit
-  // automatiquement le rôle ADMIN (créé lors de /api/org/setup).
-  if (isBootstrap) {
-    try {
-      const { data: adminRole } = await supabaseAdmin
-        .from('roles')
-        .select('id')
-        .eq('organization_id', organizationId)
-        .eq('name', 'ADMIN')
-        .maybeSingle();
-      if (adminRole) {
-        await supabaseAdmin.from('user_roles').insert({ user_id: userRow.id, role_id: adminRole.id });
-      }
-    } catch (e) {
-      console.error("Erreur non bloquante lors de l'attribution du rôle ADMIN :", e);
+  // TOUJOURS le rôle ADMIN (peu importe ce qui a été demandé — il n'y a
+  // personne d'autre pour administrer l'organisation). Pour tous les
+  // suivants, le rôle demandé (ADMIN ou VERIFICATEUR) est appliqué.
+  try {
+    const roleName = isBootstrap ? 'ADMIN' : requestedRole;
+    const { data: role } = await supabaseAdmin
+      .from('roles')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('name', roleName)
+      .maybeSingle();
+    if (role) {
+      await supabaseAdmin.from('user_roles').insert({ user_id: userRow.id, role_id: role.id });
     }
+  } catch (e) {
+    console.error("Erreur non bloquante lors de l'attribution du rôle :", e);
+  }
+
+  // Ajout automatique au groupe "Tout le monde" de l'organisation.
+  try {
+    const { data: autoGroup } = await supabaseAdmin
+      .from('user_groups')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('is_auto', true)
+      .maybeSingle();
+    if (autoGroup) {
+      await supabaseAdmin.from('user_group_members').insert({ group_id: autoGroup.id, user_id: userRow.id });
+    }
+  } catch (e) {
+    console.error("Erreur non bloquante lors de l'ajout au groupe automatique :", e);
   }
 
   const plainCode = generateActivationCode();
@@ -159,5 +176,6 @@ export async function POST(request) {
     activationCode: plainCode,
     expiresAt,
     wasBootstrapAdmin: isBootstrap,
+    assignedRole: isBootstrap ? 'ADMIN' : requestedRole,
   });
 }

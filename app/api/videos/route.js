@@ -119,5 +119,18 @@ export async function POST(request) {
     console.error("Erreur non bloquante (accès par défaut) :", e);
   }
 
+  try {
+    await supabaseAdmin.from('activity_logs').insert({
+      organization_id: profile.organization_id,
+      actor_id: actor.id,
+      entity_type: 'video',
+      entity_id: video.id,
+      action: 'created',
+      metadata: { name: video.name },
+    });
+  } catch (e) {
+    console.error('Erreur non bloquante (activity_logs) :', e);
+  }
+
   return NextResponse.json({ videoId: video.id, name: video.name, versionId: version.id });
 }

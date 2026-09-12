@@ -134,6 +134,14 @@ export async function POST(request) {
     console.error('Erreur non bloquante lors de la création des catégories par défaut :', e);
   }
 
+  // Groupe automatique "Tout le monde" — tous les futurs utilisateurs y
+  // seront ajoutés automatiquement à leur création (voir /api/org/users).
+  try {
+    await supabaseAdmin.from('user_groups').insert({ organization_id: org.id, name: 'Tout le monde', is_auto: true });
+  } catch (e) {
+    console.error('Erreur non bloquante lors de la création du groupe automatique :', e);
+  }
+
   // Le token en clair n'est renvoyé qu'une seule fois, ici — jamais stocké
   // ailleurs qu'en version hashée en base.
   return NextResponse.json({

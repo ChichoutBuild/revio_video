@@ -9,6 +9,11 @@ function fmt(seconds) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function fmtDate(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 const STATUS_LABELS = {
   BROUILLON: 'Brouillon',
   A_VERIFIER: 'À vérifier',
@@ -35,7 +40,8 @@ export default function VideoDetailPage() {
   const [apiReady, setApiReady] = useState(false);
 
   const [video, setVideo] = useState(null);
-  const [version, setVersion] = useState(null);
+  const [allVersions, setAllVersions] = useState([]);
+  const [selectedVersionId, setSelectedVersionId] = useState(null);
   const [source, setSource] = useState(null);
   const [categories, setCategories] = useState([]);
   const [feedbackList, setFeedbackList] = useState([]);
@@ -53,10 +59,19 @@ export default function VideoDetailPage() {
   const [rangeEnd, setRangeEnd] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
   const [replyDrafts, setReplyDrafts] = useState({});
+  const [transitioning, setTransitioning] = useState(false);
 
-  // --- Chargement des données -------------------------------------------
+  const [videoAccess, setVideoAccess] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupToAdd, setSelectedGroupToAdd] = useState('');
+
+  const [history, setHistory] = useState([]);
+  const [usersById, setUsersById] = useState({});
+
+  const selectedVersion = allVersions.find((v) => v.id === selectedVersionId) || null;
+
+  // --- Chargement initial ---------------------------------------------------
   useEffect(() => {
     async function load() {
       if (!supabase) {
@@ -82,19 +97,13 @@ export default function VideoDetailPage() {
       }
       setVideo(videoRow);
 
-      const { data: versionRow } = await supabase
+      const { data: versionRows } = await supabase
         .from('video_versions')
-        .select('id, version_number, status')
-        .eq('id', videoRow.current_version_id)
-        .maybeSingle();
-      setVersion(versionRow);
-
-      const { data: sourceRow } = await supabase
-        .from('video_sources')
-        .select('external_id, type')
-        .eq('video_version_id', videoRow.current_version_id)
-        .maybeSingle();
-      setSource(sourceRow);
+        .select('id, version_number, status, created_at')
+        .eq('video_id', id)
+        .order('version_number', { ascending: false });
+      setAllVersions(versionRows || []);
+      setSelectedVersionId(videoRow.current_version_id);
 
       const { data: categoryRows } = await supabase
         .from('feedback_categories')
@@ -103,11 +112,46 @@ export default function VideoDetailPage() {
       setCategories(categoryRows || []);
       if (categoryRows && categoryRows.length) setCategoryId(categoryRows[0].id);
 
-      await loadFeedback(videoRow.current_version_id);
+      const { data: accessRows } = await supabase.from('video_access').select('id, scope_type, group_id').eq('video_id', id);
+      setVideoAccess(accessRows || []);
+
+      const { data: groupRows } = await supabase.from('user_groups').select('id, name, is_auto').order('name');
+      setGroups(groupRows || []);
+
+      const versionIds = (versionRows || []).map((v) => v.id);
+      const entityFilters = [`entity_id.eq.${id}`, ...versionIds.map((vid) => `entity_id.eq.${vid}`)];
+      const { data: historyRows } = await supabase
+        .from('activity_logs')
+        .select('id, actor_id, action, metadata, created_at, entity_type')
+        .or(entityFilters.join(','))
+        .order('created_at', { ascending: false });
+      setHistory(historyRows || []);
+
+      const actorIds = [...new Set((historyRows || []).map((h) => h.actor_id).filter(Boolean))];
+      if (actorIds.length) {
+        const { data: userRows } = await supabase.from('users').select('id, display_name').in('id', actorIds);
+        setUsersById(Object.fromEntries((userRows || []).map((u) => [u.id, u.display_name])));
+      }
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // --- Chargement dépendant de la version sélectionnée ----------------------
+  useEffect(() => {
+    if (!selectedVersionId) return;
+    async function loadVersionData() {
+      const { data: sourceRow } = await supabase
+        .from('video_sources')
+        .select('external_id, type')
+        .eq('video_version_id', selectedVersionId)
+        .maybeSingle();
+      setSource(sourceRow);
+      await loadFeedback(selectedVersionId);
+    }
+    loadVersionData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVersionId]);
 
   async function loadFeedback(videoVersionId) {
     const { data: feedbackRows } = await supabase
@@ -130,10 +174,12 @@ export default function VideoDetailPage() {
         grouped[r.feedback_id].push(r);
       });
       setReplies(grouped);
+    } else {
+      setReplies({});
     }
   }
 
-  // --- Lecteur YouTube -----------------------------------------------------
+  // --- Lecteur YouTube -------------------------------------------------------
   useEffect(() => {
     if (window.YT && window.YT.Player) {
       setApiReady(true);
@@ -146,12 +192,19 @@ export default function VideoDetailPage() {
   }, []);
 
   useEffect(() => {
-    if (apiReady && source?.external_id && !playerRef.current) {
-      playerRef.current = new window.YT.Player('yt-player', {
-        videoId: source.external_id,
-        playerVars: { playsinline: 1, autoplay: 0, rel: 0, controls: 1 },
-      });
+    if (!apiReady || !source?.external_id) return;
+    if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+      try {
+        playerRef.current.loadVideoById(source.external_id);
+        return;
+      } catch (e) {
+        /* on retombe sur la recréation ci-dessous */
+      }
     }
+    playerRef.current = new window.YT.Player('yt-player', {
+      videoId: source.external_id,
+      playerVars: { playsinline: 1, autoplay: 0, rel: 0, controls: 1 },
+    });
   }, [apiReady, source]);
 
   function getCurrentTime() {
@@ -170,7 +223,7 @@ export default function VideoDetailPage() {
     }
   }
 
-  // --- Création de feedback ------------------------------------------------
+  // --- Feedback ---------------------------------------------------------------
   async function handleSubmitFeedback() {
     setSubmitError(null);
     if (!content.trim()) {
@@ -183,7 +236,7 @@ export default function VideoDetailPage() {
     }
 
     const payload = {
-      video_version_id: version.id,
+      video_version_id: selectedVersionId,
       author_id: myUserId,
       category_id: categoryId,
       type: feedbackType,
@@ -215,7 +268,7 @@ export default function VideoDetailPage() {
     setContent('');
     setRangeStart(null);
     setRangeEnd(null);
-    await loadFeedback(version.id);
+    await loadFeedback(selectedVersionId);
   }
 
   async function handleReply(feedbackId) {
@@ -226,7 +279,7 @@ export default function VideoDetailPage() {
       .insert({ feedback_id: feedbackId, author_id: myUserId, content: text });
     if (!error) {
       setReplyDrafts((d) => ({ ...d, [feedbackId]: '' }));
-      await loadFeedback(version.id);
+      await loadFeedback(selectedVersionId);
     }
   }
 
@@ -238,15 +291,14 @@ export default function VideoDetailPage() {
       body: JSON.stringify({}),
     });
     if (res.ok) {
-      await loadFeedback(version.id);
+      await loadFeedback(selectedVersionId);
     } else {
       const json = await res.json();
       alert(json.error || 'Impossible de résoudre ce retour.');
     }
   }
 
-  const [transitioning, setTransitioning] = useState(false);
-
+  // --- Statut -------------------------------------------------------------
   async function handleTransition(newStatus) {
     if (!sessionToken) return;
     setTransitioning(true);
@@ -261,11 +313,54 @@ export default function VideoDetailPage() {
       alert(json.error || 'Erreur inconnue');
       return;
     }
-    setVersion((v) => ({ ...v, status: json.status }));
+    setAllVersions((vs) => vs.map((v) => (v.id === selectedVersionId ? { ...v, status: json.status } : v)));
+  }
+
+  // --- Versions -------------------------------------------------------------
+  async function handleCreateVersion() {
+    const youtubeInput = window.prompt("Lien ou ID YouTube de la nouvelle version (non répertoriée) :");
+    if (!youtubeInput) return;
+    const res = await fetch(`/api/videos/${id}/new-version`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ youtubeInput }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    window.location.reload();
+  }
+
+  // --- Accès / vérificateurs -------------------------------------------------
+  async function handleAddGroupAccess() {
+    if (!selectedGroupToAdd) return;
+    const { error } = await supabase
+      .from('video_access')
+      .insert({ video_id: id, scope_type: 'GROUP', group_id: selectedGroupToAdd });
+    if (error) {
+      alert(`Impossible d'ajouter cet accès : ${error.message}`);
+      return;
+    }
+    const { data: accessRows } = await supabase.from('video_access').select('id, scope_type, group_id').eq('video_id', id);
+    setVideoAccess(accessRows || []);
+    setSelectedGroupToAdd('');
+  }
+
+  async function handleRemoveAccess(accessId) {
+    const { error } = await supabase.from('video_access').delete().eq('id', accessId);
+    if (error) {
+      alert(`Impossible de retirer cet accès : ${error.message}`);
+      return;
+    }
+    setVideoAccess((rows) => rows.filter((r) => r.id !== accessId));
   }
 
   const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
+  const groupById = Object.fromEntries(groups.map((g) => [g.id, g]));
   const blockingCount = feedbackList.filter((f) => f.status === 'OPEN' && categoryById[f.category_id]?.is_blocking).length;
+  const isCurrentVersion = video?.current_version_id === selectedVersionId;
 
   // --- Rendu ----------------------------------------------------------------
   if (notLoggedIn) {
@@ -298,15 +393,38 @@ export default function VideoDetailPage() {
     <main style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
         <h1 style={{ marginBottom: 4 }}>{video.name}</h1>
-        <p className="muted">
-          {video.category} · V{version?.version_number} · {version?.status}
-        </p>
+        <p className="muted">{video.category}</p>
+      </div>
+
+      <div className="card">
+        <div className="row wrap" style={{ marginBottom: 8 }}>
+          {allVersions.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setSelectedVersionId(v.id)}
+              style={{
+                background: v.id === selectedVersionId ? '#3730a3' : '#e2e2ec',
+                color: v.id === selectedVersionId ? 'white' : '#1c1c28',
+              }}
+            >
+              V{v.version_number} {v.id === video.current_version_id ? '(actuelle)' : ''}
+            </button>
+          ))}
+          <button onClick={handleCreateVersion}>+ Nouvelle version</button>
+        </div>
+        {!isCurrentVersion && (
+          <p className="muted" style={{ margin: 0 }}>
+            Tu consultes une ancienne version — ses retours et son historique sont conservés tels quels.
+          </p>
+        )}
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <div>
-            <p style={{ fontWeight: 600, margin: 0 }}>Statut : {STATUS_LABELS[version?.status] || version?.status}</p>
+            <p style={{ fontWeight: 600, margin: 0 }}>
+              Statut : {STATUS_LABELS[selectedVersion?.status] || selectedVersion?.status}
+            </p>
             {blockingCount > 0 && (
               <p style={{ color: '#c0392b', margin: '4px 0 0', fontWeight: 600 }}>
                 ⚠ {blockingCount} retour{blockingCount > 1 ? 's' : ''} bloquant{blockingCount > 1 ? 's' : ''} non résolu
@@ -315,7 +433,7 @@ export default function VideoDetailPage() {
             )}
           </div>
           <div className="row wrap">
-            {(NEXT_TRANSITIONS[version?.status] || []).map((nextStatus) => (
+            {(NEXT_TRANSITIONS[selectedVersion?.status] || []).map((nextStatus) => (
               <button key={nextStatus} onClick={() => handleTransition(nextStatus)} disabled={transitioning}>
                 → {STATUS_LABELS[nextStatus]}
               </button>
@@ -332,6 +450,43 @@ export default function VideoDetailPage() {
         <div style={{ width: '100%', aspectRatio: '16/9', background: 'black', borderRadius: 8, overflow: 'hidden' }}>
           <div id="yt-player" style={{ width: '100%', height: '100%' }} />
         </div>
+      </div>
+
+      <div className="card">
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Vérificateurs assignés</p>
+        <div className="row wrap" style={{ marginBottom: 8 }}>
+          {videoAccess.map((a) => (
+            <span
+              key={a.id}
+              style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              {a.scope_type === 'ALL_TEAM' ? "Toute l'équipe" : groupById[a.group_id]?.name || 'Groupe'}
+              <button onClick={() => handleRemoveAccess(a.id)} style={{ background: 'transparent', color: '#c0392b', padding: 0 }}>
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="row">
+          <select
+            value={selectedGroupToAdd}
+            onChange={(e) => setSelectedGroupToAdd(e.target.value)}
+            style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+          >
+            <option value="">Ajouter un groupe...</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <button onClick={handleAddGroupAccess} disabled={!selectedGroupToAdd}>
+            Ajouter
+          </button>
+        </div>
+        <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+          Gère les groupes eux-mêmes (créer, ajouter des membres) depuis <a href="/admin/groups">/admin/groups</a>.
+        </p>
       </div>
 
       <div className="card">
@@ -450,6 +605,20 @@ export default function VideoDetailPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="card">
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Historique</p>
+        {history.length === 0 && <p className="muted">Aucun événement pour l&apos;instant.</p>}
+        {history.map((h) => (
+          <p key={h.id} className="muted" style={{ margin: '4px 0' }}>
+            {fmtDate(h.created_at)} — {usersById[h.actor_id] || 'Système'} —{' '}
+            {h.action === 'created' && 'vidéo créée'}
+            {h.action === 'version_created' && `V${h.metadata?.version_number} créée`}
+            {h.action === 'status_changed' &&
+              `statut : ${STATUS_LABELS[h.metadata?.from] || h.metadata?.from} → ${STATUS_LABELS[h.metadata?.to] || h.metadata?.to}`}
+          </p>
+        ))}
       </div>
     </main>
   );
