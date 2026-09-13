@@ -36,6 +36,7 @@ export async function POST(request) {
 
   const name = (body.name || '').trim();
   const category = body.category === 'SHORT' ? 'SHORT' : 'LONG';
+  const notes = (body.notes || '').trim().slice(0, 5000) || null;
   if (!name || name.length > 200) {
     return NextResponse.json({ error: 'Nom invalide (1 à 200 caractères).' }, { status: 400 });
   }
@@ -69,7 +70,7 @@ export async function POST(request) {
   try {
     ({ data: video, error: videoError } = await supabaseAdmin
       .from('videos')
-      .insert({ organization_id: profile.organization_id, name, category, created_by: actor.id })
+      .insert({ organization_id: profile.organization_id, name, category, notes, created_by: actor.id })
       .select()
       .single());
   } catch (e) {

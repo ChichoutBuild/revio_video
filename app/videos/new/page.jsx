@@ -7,6 +7,7 @@ export default function NewVideoPage() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('LONG');
   const [youtubeInput, setYoutubeInput] = useState('');
+  const [notes, setNotes] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +33,7 @@ export default function NewVideoPage() {
       const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, category, youtubeInput }),
+        body: JSON.stringify({ name, category, youtubeInput, notes }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -93,6 +94,15 @@ export default function NewVideoPage() {
           value={youtubeInput}
           onChange={(e) => setYoutubeInput(e.target.value)}
           placeholder="https://youtube.com/watch?v=ukBnae57lb4 ou ukBnae57lb4"
+        />
+        <div style={{ height: 12 }} />
+        <label>Note pour les vérificateurs (optionnel)</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Ex : fais particulièrement attention au passage entre 3:20 et 4:10."
+          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
         />
         <div style={{ height: 12 }} />
         <button onClick={handleCreate} disabled={loading || !name || !youtubeInput}>

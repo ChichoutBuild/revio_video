@@ -66,6 +66,21 @@ export default function VideoDetailPage() {
   const [groups, setGroups] = useState([]);
   const [selectedGroupToAdd, setSelectedGroupToAdd] = useState('');
   const [canAssign, setCanAssign] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
+
+  const [titleOptions, setTitleOptions] = useState([]);
+  const [newTitleLabel, setNewTitleLabel] = useState('A');
+  const [newTitleText, setNewTitleText] = useState('');
+  const [selectedTitleId, setSelectedTitleId] = useState('');
+
+  const [descriptionValue, setDescriptionValue] = useState('');
+  const [descriptionSaving, setDescriptionSaving] = useState(false);
+
+  const [thumbnails, setThumbnails] = useState([]);
+  const [newThumbnailLabel, setNewThumbnailLabel] = useState('A');
+  const [newThumbnailFile, setNewThumbnailFile] = useState(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [selectedThumbnailId, setSelectedThumbnailId] = useState('');
 
   const [history, setHistory] = useState([]);
   const [usersById, setUsersById] = useState({});
@@ -89,7 +104,7 @@ export default function VideoDetailPage() {
 
       const { data: videoRow, error: videoError } = await supabase
         .from('videos')
-        .select('id, name, category, current_version_id')
+        .select('id, name, category, current_version_id, notes')
         .eq('id', id)
         .maybeSingle();
       if (videoError || !videoRow) {
@@ -124,6 +139,7 @@ export default function VideoDetailPage() {
       });
       const permJson = await permRes.json();
       setCanAssign(permJson?.permissions?.VIDEOS_ASSIGN === true);
+      setCanEdit(permJson?.permissions?.VIDEOS_EDIT === true);
 
       const versionIds = (versionRows || []).map((v) => v.id);
       const entityFilters = [`entity_id.eq.${id}`, ...versionIds.map((vid) => `entity_id.eq.${vid}`)];
@@ -155,10 +171,36 @@ export default function VideoDetailPage() {
         .maybeSingle();
       setSource(sourceRow);
       await loadFeedback(selectedVersionId);
+
+      const { data: versionDetail } = await supabase
+        .from('video_versions')
+        .select('description')
+        .eq('id', selectedVersionId)
+        .maybeSingle();
+      setDescriptionValue(versionDetail?.description || '');
+
+      const { data: titleRows } = await supabase
+        .from('video_title_options')
+        .select('id, label, title')
+        .eq('video_version_id', selectedVersionId)
+        .order('label');
+      setTitleOptions(titleRows || []);
+      setSelectedTitleId('');
+
+      if (sessionToken) {
+        const thumbRes = await fetch(`/api/videos/${id}/thumbnails?videoVersionId=${selectedVersionId}`, {
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+        if (thumbRes.ok) {
+          const thumbJson = await thumbRes.json();
+          setThumbnails(thumbJson.thumbnails || []);
+        }
+      }
+      setSelectedThumbnailId('');
     }
     loadVersionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVersionId]);
+  }, [selectedVersionId, sessionToken]);
 
   async function loadFeedback(videoVersionId) {
     const { data: feedbackRows } = await supabase
@@ -372,6 +414,110 @@ export default function VideoDetailPage() {
     setVideoAccess((rows) => rows.filter((r) => r.id !== accessId));
   }
 
+  // --- Titres alternatifs -----------------------------------------------------
+  async function handleAddTitle() {
+    if (!newTitleText.trim()) return;
+    const res = await fetch(`/api/videos/${id}/titles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ videoVersionId: selectedVersionId, label: newTitleLabel, title: newTitleText.trim() }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    setNewTitleText('');
+    const { data: titleRows } = await supabase
+      .from('video_title_options')
+      .select('id, label, title')
+      .eq('video_version_id', selectedVersionId)
+      .order('label');
+    setTitleOptions(titleRows || []);
+  }
+
+  async function handleRemoveTitle(optionId) {
+    const res = await fetch(`/api/videos/${id}/titles`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ optionId }),
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    setTitleOptions((rows) => rows.filter((t) => t.id !== optionId));
+    if (selectedTitleId === optionId) setSelectedTitleId('');
+  }
+
+  // --- Description ------------------------------------------------------------
+  async function handleSaveDescription() {
+    setDescriptionSaving(true);
+    const res = await fetch(`/api/videos/${id}/description`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ videoVersionId: selectedVersionId, description: descriptionValue }),
+    });
+    setDescriptionSaving(false);
+    if (!res.ok) {
+      const json = await res.json();
+      alert(json.error || 'Erreur inconnue');
+    }
+  }
+
+  // --- Miniatures ---------------------------------------------------------------
+  async function handleUploadThumbnail() {
+    if (!newThumbnailFile) return;
+    setThumbnailUploading(true);
+    const formData = new FormData();
+    formData.append('videoVersionId', selectedVersionId);
+    formData.append('label', newThumbnailLabel);
+    formData.append('file', newThumbnailFile);
+
+    const res = await fetch(`/api/videos/${id}/thumbnails`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${sessionToken}` },
+      body: formData,
+    });
+    const json = await res.json();
+    setThumbnailUploading(false);
+    if (!res.ok) {
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    setNewThumbnailFile(null);
+
+    const thumbRes = await fetch(`/api/videos/${id}/thumbnails?videoVersionId=${selectedVersionId}`, {
+      headers: { Authorization: `Bearer ${sessionToken}` },
+    });
+    if (thumbRes.ok) {
+      const thumbJson = await thumbRes.json();
+      setThumbnails(thumbJson.thumbnails || []);
+    }
+  }
+
+  async function handleRemoveThumbnail(optionId) {
+    const res = await fetch(`/api/videos/${id}/thumbnails`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+      body: JSON.stringify({ optionId }),
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      alert(json.error || 'Erreur inconnue');
+      return;
+    }
+    setThumbnails((rows) => rows.filter((t) => t.id !== optionId));
+    if (selectedThumbnailId === optionId) setSelectedThumbnailId('');
+  }
+
+  const usedTitleLabels = titleOptions.map((t) => t.label);
+  const availableTitleLabels = ['A', 'B', 'C'].filter((l) => !usedTitleLabels.includes(l));
+  const usedThumbnailLabels = thumbnails.map((t) => t.label);
+  const availableThumbnailLabels = ['A', 'B', 'C'].filter((l) => !usedThumbnailLabels.includes(l));
+  const selectedThumbnail = thumbnails.find((t) => t.id === selectedThumbnailId) || null;
+
   const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
   const groupById = Object.fromEntries(groups.map((g) => [g.id, g]));
   const blockingCount = feedbackList.filter((f) => f.status === 'OPEN' && categoryById[f.category_id]?.is_blocking).length;
@@ -410,6 +556,13 @@ export default function VideoDetailPage() {
         <h1 style={{ marginBottom: 4 }}>{video.name}</h1>
         <p className="muted">{video.category}</p>
       </div>
+
+      {video.notes && (
+        <div className="card" style={{ background: '#fff8e1', borderColor: '#f0d98c' }}>
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: 4 }}>📌 Note du créateur</p>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{video.notes}</p>
+        </div>
+      )}
 
       <div className="card">
         <div className="row wrap" style={{ marginBottom: 8 }}>
@@ -465,6 +618,176 @@ export default function VideoDetailPage() {
         <div style={{ width: '100%', aspectRatio: '16/9', background: 'black', borderRadius: 8, overflow: 'hidden' }}>
           <div id="yt-player" style={{ width: '100%', height: '100%' }} />
         </div>
+      </div>
+
+      <div className="card">
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Titres alternatifs</p>
+        {titleOptions.length > 0 ? (
+          <>
+            <select
+              value={selectedTitleId}
+              onChange={(e) => setSelectedTitleId(e.target.value)}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 8 }}
+            >
+              <option value="">Titre par défaut ({video.name})</option>
+              {titleOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Titre {t.label} : {t.title}
+                </option>
+              ))}
+            </select>
+            {selectedTitleId && (
+              <p style={{ margin: '0 0 8px', fontWeight: 600 }}>
+                {titleOptions.find((t) => t.id === selectedTitleId)?.title}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="muted">Aucun titre alternatif pour l&apos;instant.</p>
+        )}
+
+        {canEdit && (
+          <>
+            {titleOptions.length > 0 && (
+              <div className="row wrap" style={{ marginBottom: 8 }}>
+                {titleOptions.map((t) => (
+                  <span key={t.id} style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999 }}>
+                    {t.label}
+                    <button
+                      onClick={() => handleRemoveTitle(t.id)}
+                      style={{ background: 'transparent', color: '#c0392b', padding: '0 0 0 6px' }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {availableTitleLabels.length > 0 && (
+              <div className="row wrap">
+                <select
+                  value={newTitleLabel}
+                  onChange={(e) => setNewTitleLabel(e.target.value)}
+                  style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+                >
+                  {availableTitleLabels.map((l) => (
+                    <option key={l} value={l}>
+                      Titre {l}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={newTitleText}
+                  onChange={(e) => setNewTitleText(e.target.value)}
+                  placeholder="Nouveau titre..."
+                  style={{ flex: 1 }}
+                />
+                <button onClick={handleAddTitle} disabled={!newTitleText.trim()}>
+                  Ajouter
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="card">
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Description</p>
+        {canEdit ? (
+          <>
+            <textarea
+              value={descriptionValue}
+              onChange={(e) => setDescriptionValue(e.target.value)}
+              rows={4}
+              placeholder="Description qui sera utilisée sur YouTube..."
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
+            />
+            <div style={{ height: 8 }} />
+            <button onClick={handleSaveDescription} disabled={descriptionSaving}>
+              {descriptionSaving ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </>
+        ) : (
+          <p className="muted" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+            {descriptionValue || 'Aucune description pour l\u2019instant.'}
+          </p>
+        )}
+      </div>
+
+      <div className="card">
+        <p style={{ fontWeight: 600, marginTop: 0 }}>Miniatures alternatives</p>
+        {thumbnails.length > 0 ? (
+          <>
+            <select
+              value={selectedThumbnailId}
+              onChange={(e) => setSelectedThumbnailId(e.target.value)}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 8 }}
+            >
+              <option value="">Aucune sélectionnée</option>
+              {thumbnails.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Miniature {t.label}
+                </option>
+              ))}
+            </select>
+            {selectedThumbnail?.url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedThumbnail.url}
+                alt={`Miniature ${selectedThumbnail.label}`}
+                style={{ width: '100%', borderRadius: 8, marginBottom: 8 }}
+              />
+            )}
+          </>
+        ) : (
+          <p className="muted">Aucune miniature alternative pour l&apos;instant.</p>
+        )}
+
+        {canEdit && (
+          <>
+            {thumbnails.length > 0 && (
+              <div className="row wrap" style={{ marginBottom: 8 }}>
+                {thumbnails.map((t) => (
+                  <span key={t.id} style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999 }}>
+                    {t.label}
+                    <button
+                      onClick={() => handleRemoveThumbnail(t.id)}
+                      style={{ background: 'transparent', color: '#c0392b', padding: '0 0 0 6px' }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {availableThumbnailLabels.length > 0 && (
+              <div className="row wrap">
+                <select
+                  value={newThumbnailLabel}
+                  onChange={(e) => setNewThumbnailLabel(e.target.value)}
+                  style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+                >
+                  {availableThumbnailLabels.map((l) => (
+                    <option key={l} value={l}>
+                      Miniature {l}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setNewThumbnailFile(e.target.files?.[0] || null)}
+                />
+                <button onClick={handleUploadThumbnail} disabled={!newThumbnailFile || thumbnailUploading}>
+                  {thumbnailUploading ? 'Envoi...' : 'Ajouter'}
+                </button>
+              </div>
+            )}
+            <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
+              JPG, PNG ou WebP, 2 Mo maximum, 3 miniatures au plus.
+            </p>
+          </>
+        )}
       </div>
 
       <div className="card">
