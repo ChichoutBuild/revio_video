@@ -14,10 +14,20 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+// Conversion standard clé publique VAPID (base64url) -> Uint8Array, requise
+// par l'API navigateur PushManager.subscribe().
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState(null);
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [error, setError] = useState(null);
+  const [pushStatus, setPushStatus] = useState(null);
 
   async function load() {
     if (!supabase) {
@@ -51,6 +61,55 @@ export default function NotificationsPage() {
     setNotifications((rows) => rows.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
   }
 
+  async function enablePush() {
+    setPushStatus('loading');
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setPushStatus('Ce navigateur ne supporte pas les notifications push.');
+        return;
+      }
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) {
+        setPushStatus("Clé VAPID publique manquante côté app.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushStatus('Permission refusée.');
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      const json = subscription.toJSON();
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      if (!userId) {
+        setPushStatus('Session expirée, reconnecte-toi.');
+        return;
+      }
+
+      const { error: insertError } = await supabase.from('push_subscriptions').insert({
+        user_id: userId,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      });
+      if (insertError && !insertError.message.includes('duplicate')) {
+        setPushStatus(`Erreur : ${insertError.message}`);
+        return;
+      }
+      setPushStatus('✅ Notifications push activées sur cet appareil.');
+    } catch (e) {
+      setPushStatus(`Erreur : ${e.message}`);
+    }
+  }
+
   function targetUrl(n) {
     const videoId = n.payload?.video_id;
     return videoId ? `/videos/${videoId}` : null;
@@ -78,6 +137,14 @@ export default function NotificationsPage() {
   return (
     <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <h1>Notifications</h1>
+
+      <div className="card">
+        <p style={{ marginTop: 0 }}>Reçois une notification sur cet appareil même quand l&apos;app n&apos;est pas ouverte.</p>
+        <button onClick={enablePush} disabled={pushStatus === 'loading'}>
+          {pushStatus === 'loading' ? 'Activation...' : 'Activer les notifications push sur cet appareil'}
+        </button>
+        {pushStatus && pushStatus !== 'loading' && <p className="muted" style={{ marginBottom: 0 }}>{pushStatus}</p>}
+      </div>
 
       {!notifications && <p className="muted">Chargement...</p>}
       {notifications && notifications.length === 0 && <p className="muted">Aucune notification pour l&apos;instant.</p>}

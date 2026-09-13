@@ -25,3 +25,35 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(event.request))
   );
 });
+
+// --- Notifications push (Web Push standard) --------------------------------
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: 'Nouvelle notification', url: '/notifications' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Nouvelle notification', {
+      body: data.body || '',
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      data: { url: data.url || '/notifications' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/notifications';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(url) && 'focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
