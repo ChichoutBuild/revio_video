@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 
 export default function AdminUsersPage() {
@@ -50,7 +51,7 @@ export default function AdminUsersPage() {
       <p className="muted">
         Le premier utilisateur d&apos;une organisation peut être créé sans connexion (il devient
         automatiquement ADMIN, quel que soit le rôle choisi ci-dessous). Pour tous les suivants, il
-        faut être connecté (via <a href="/activate">/activate</a>) avec la permission USERS_CREATE.
+        faut être connecté (via <Link href="/activate">/activate</Link>) avec la permission USERS_CREATE.
       </p>
 
       <div className="card">
@@ -62,13 +63,13 @@ export default function AdminUsersPage() {
         />
         <div style={{ height: 12 }} />
         <label>Nom de l&apos;utilisateur</label>
-        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nathan" />
+        <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Nom complet" />
         <div style={{ height: 12 }} />
         <label>Rôle</label>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+          
         >
           <option value="VERIFICATEUR">Vérificateur</option>
           <option value="ADMIN">Admin</option>
@@ -87,7 +88,7 @@ export default function AdminUsersPage() {
             ✅ Utilisateur créé : <strong>{result.displayName}</strong> — rôle {result.assignedRole}
           </p>
           <p>Code d&apos;activation (à transmettre, valable 72h, usage unique) :</p>
-          <p style={{ fontFamily: 'monospace', fontSize: 20, background: '#f4f5f9', padding: 8, borderRadius: 6 }}>
+          <p style={{ fontFamily: 'monospace', fontSize: 20, background: 'var(--color-bg)', padding: 8, borderRadius: 6 }}>
             {result.activationCode}
           </p>
         </div>

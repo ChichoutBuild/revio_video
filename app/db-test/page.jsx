@@ -55,7 +55,7 @@ export default function DbTestPage() {
   }, []);
 
   const boxStyle = (ok) => ({
-    color: ok === false ? '#c0392b' : '#1c1c28',
+    color: ok === false ? 'var(--color-error)' : 'var(--color-text)',
     fontWeight: ok === false ? 600 : 400,
   });
 

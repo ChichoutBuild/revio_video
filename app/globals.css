@@ -1,12 +1,49 @@
 :root {
-  --primary: #3730a3;
-  --primary-dark: #262178;
-  --bg: #f4f5f9;
-  --card: #ffffff;
-  --border: #e2e2ec;
-  --text: #1c1c28;
-  --muted: #6b6b7b;
-  --error: #c0392b;
+  --color-primary: #3730a3;
+  --color-primary-hover: #2d2686;
+  --color-primary-contrast: #ffffff;
+
+  --color-bg: #f4f5f9;
+  --color-surface: #ffffff;
+  --color-border: #e2e2ec;
+  --color-text: #1c1c28;
+  --color-text-muted: #6b6b7b;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  --color-highlight-bg: #eef0ff;
+  --color-highlight-border: #c7cbfa;
+
+  --color-note-bg: #fff8e1;
+  --color-note-border: #f0d98c;
+
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-contrast: #0b0d14;
+
+  --color-bg: #0b0d14;
+  --color-surface: #060607;
+  --color-border: #23232b;
+  --color-text: #f0f0f0;
+  --color-text-muted: #9a9aa5;
+
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+
+  --color-highlight-bg: #171833;
+  --color-highlight-border: #34327a;
+
+  --color-note-bg: #2a2410;
+  --color-note-border: #5c4d1a;
+
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -15,28 +52,34 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
+a { color: var(--color-primary); }
+
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
 }
 
-input {
+input, select, textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 15px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
 }
 
 button {
-  background: var(--primary);
-  color: white;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
   border: none;
   border-radius: 8px;
   padding: 10px 16px;
@@ -44,13 +87,59 @@ button {
   cursor: pointer;
   white-space: nowrap;
 }
-button:hover { background: var(--primary-dark); }
+button:hover { background: var(--color-primary-hover); }
 button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+button.secondary {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+button.secondary:hover { filter: brightness(0.95); }
 
 .row { display: flex; gap: 8px; align-items: flex-end; }
 .row.wrap { flex-wrap: wrap; }
-.row > input { flex: 1; }
+.row > input, .row > select { flex: 1; }
 
-.error { color: var(--error); font-weight: 600; font-size: 14px; }
+.error { color: var(--color-error); font-weight: 600; font-size: 14px; }
 .hidden { display: none; }
-.muted { color: var(--muted); font-size: 13px; }
+.muted { color: var(--color-text-muted); font-size: 13px; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--color-border);
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Grille responsive pour titres/miniatures — côte à côte sur desktop,
+   empilés sur mobile (voir la largeur de colonne minimale). */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Bascule du logo selon le thème actif (voir AppHeader) */
+.logo-dark { display: none; }
+html[data-theme='dark'] .logo-light { display: none; }
+html[data-theme='dark'] .logo-dark { display: block; }

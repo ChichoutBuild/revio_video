@@ -60,11 +60,11 @@ export default function AdminSetupPage() {
             ✅ Organisation créée : <strong>{result.organizationName}</strong>
           </p>
           <p>ID de l&apos;organisation (à réutiliser pour créer des utilisateurs) :</p>
-          <p style={{ fontFamily: 'monospace', wordBreak: 'break-all', background: '#f4f5f9', padding: 8, borderRadius: 6 }}>
+          <p style={{ fontFamily: 'monospace', wordBreak: 'break-all', background: 'var(--color-bg)', padding: 8, borderRadius: 6 }}>
             {result.organizationId}
           </p>
           <p>Token d&apos;association (copie-le maintenant, il ne sera plus jamais affiché) :</p>
-          <p style={{ fontFamily: 'monospace', wordBreak: 'break-all', background: '#f4f5f9', padding: 8, borderRadius: 6 }}>
+          <p style={{ fontFamily: 'monospace', wordBreak: 'break-all', background: 'var(--color-bg)', padding: 8, borderRadius: 6 }}>
             {result.token}
           </p>
         </div>

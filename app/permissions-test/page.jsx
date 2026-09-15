@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function PermissionsTestPage() {
@@ -42,7 +43,7 @@ export default function PermissionsTestPage() {
         <div className="card">
           <p>Tu n&apos;es pas connecté dans ce navigateur.</p>
           <p className="muted">
-            Va sur <a href="/activate">/activate</a> avec un code d&apos;activation d&apos;abord.
+            Va sur <Link href="/activate">/activate</Link> avec un code d&apos;activation d&apos;abord.
           </p>
         </div>
       )}
@@ -55,7 +56,7 @@ export default function PermissionsTestPage() {
           <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse' }}>
             <tbody>
               {Object.entries(result.permissions).map(([code, value]) => (
-                <tr key={code} style={{ borderTop: '1px solid #e2e2ec' }}>
+                <tr key={code} style={{ borderTop: '1px solid var(--color-border)' }}>
                   <td style={{ padding: '8px 4px', fontFamily: 'monospace' }}>{code}</td>
                   <td style={{ padding: '8px 4px', textAlign: 'right' }}>
                     {value === true ? '✅ autorisé' : value === false ? '⛔ refusé' : '⚠️ erreur'}

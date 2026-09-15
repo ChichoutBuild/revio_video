@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 
 function fmt(seconds) {
@@ -71,7 +72,6 @@ export default function VideoDetailPage() {
   const [titleOptions, setTitleOptions] = useState([]);
   const [newTitleLabel, setNewTitleLabel] = useState('A');
   const [newTitleText, setNewTitleText] = useState('');
-  const [selectedTitleId, setSelectedTitleId] = useState('');
 
   const [descriptionValue, setDescriptionValue] = useState('');
   const [descriptionSaving, setDescriptionSaving] = useState(false);
@@ -80,7 +80,6 @@ export default function VideoDetailPage() {
   const [newThumbnailLabel, setNewThumbnailLabel] = useState('A');
   const [newThumbnailFile, setNewThumbnailFile] = useState(null);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
-  const [selectedThumbnailId, setSelectedThumbnailId] = useState('');
 
   const [history, setHistory] = useState([]);
   const [usersById, setUsersById] = useState({});
@@ -185,7 +184,6 @@ export default function VideoDetailPage() {
         .eq('video_version_id', selectedVersionId)
         .order('label');
       setTitleOptions(titleRows || []);
-      setSelectedTitleId('');
 
       if (sessionToken) {
         const thumbRes = await fetch(`/api/videos/${id}/thumbnails?videoVersionId=${selectedVersionId}`, {
@@ -196,7 +194,6 @@ export default function VideoDetailPage() {
           setThumbnails(thumbJson.thumbnails || []);
         }
       }
-      setSelectedThumbnailId('');
     }
     loadVersionData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -448,7 +445,6 @@ export default function VideoDetailPage() {
       return;
     }
     setTitleOptions((rows) => rows.filter((t) => t.id !== optionId));
-    if (selectedTitleId === optionId) setSelectedTitleId('');
   }
 
   // --- Description ------------------------------------------------------------
@@ -509,14 +505,12 @@ export default function VideoDetailPage() {
       return;
     }
     setThumbnails((rows) => rows.filter((t) => t.id !== optionId));
-    if (selectedThumbnailId === optionId) setSelectedThumbnailId('');
   }
 
   const usedTitleLabels = titleOptions.map((t) => t.label);
   const availableTitleLabels = ['A', 'B', 'C'].filter((l) => !usedTitleLabels.includes(l));
   const usedThumbnailLabels = thumbnails.map((t) => t.label);
   const availableThumbnailLabels = ['A', 'B', 'C'].filter((l) => !usedThumbnailLabels.includes(l));
-  const selectedThumbnail = thumbnails.find((t) => t.id === selectedThumbnailId) || null;
 
   const categoryById = Object.fromEntries(categories.map((c) => [c.id, c]));
   const groupById = Object.fromEntries(groups.map((g) => [g.id, g]));
@@ -526,10 +520,10 @@ export default function VideoDetailPage() {
   // --- Rendu ----------------------------------------------------------------
   if (notLoggedIn) {
     return (
-      <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
+      <main className="page">
         <div className="card">
           <p>
-            Tu n&apos;es pas connecté. Va sur <a href="/activate">/activate</a> d&apos;abord.
+            Tu n&apos;es pas connecté. Va sur <Link href="/activate">/activate</Link> d&apos;abord.
           </p>
         </div>
       </main>
@@ -537,28 +531,28 @@ export default function VideoDetailPage() {
   }
   if (loadError) {
     return (
-      <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
+      <main className="page">
         <p className="error">{loadError}</p>
       </main>
     );
   }
   if (!video) {
     return (
-      <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
+      <main className="page">
         <p className="muted">Chargement...</p>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <main className="page" style={{ maxWidth: 720 }}>
       <div>
         <h1 style={{ marginBottom: 4 }}>{video.name}</h1>
         <p className="muted">{video.category}</p>
       </div>
 
       {video.notes && (
-        <div className="card" style={{ background: '#fff8e1', borderColor: '#f0d98c' }}>
+        <div className="card" style={{ background: 'var(--color-note-bg)', borderColor: 'var(--color-note-border)' }}>
           <p style={{ fontWeight: 600, marginTop: 0, marginBottom: 4 }}>📌 Note du créateur</p>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{video.notes}</p>
         </div>
@@ -571,8 +565,8 @@ export default function VideoDetailPage() {
               key={v.id}
               onClick={() => setSelectedVersionId(v.id)}
               style={{
-                background: v.id === selectedVersionId ? '#3730a3' : '#e2e2ec',
-                color: v.id === selectedVersionId ? 'white' : '#1c1c28',
+                background: v.id === selectedVersionId ? 'var(--color-primary)' : 'var(--color-border)',
+                color: v.id === selectedVersionId ? 'var(--color-primary-contrast)' : 'var(--color-text)',
               }}
             >
               V{v.version_number} {v.id === video.current_version_id ? '(actuelle)' : ''}
@@ -594,7 +588,7 @@ export default function VideoDetailPage() {
               Statut : {STATUS_LABELS[selectedVersion?.status] || selectedVersion?.status}
             </p>
             {blockingCount > 0 && (
-              <p style={{ color: '#c0392b', margin: '4px 0 0', fontWeight: 600 }}>
+              <p style={{ color: 'var(--color-error)', margin: '4px 0 0', fontWeight: 600 }}>
                 ⚠ {blockingCount} retour{blockingCount > 1 ? 's' : ''} bloquant{blockingCount > 1 ? 's' : ''} non résolu
                 {blockingCount > 1 ? 's' : ''}
               </p>
@@ -615,7 +609,7 @@ export default function VideoDetailPage() {
       </div>
 
       <div className="card">
-        <div style={{ width: '100%', aspectRatio: '16/9', background: 'black', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: 8, overflow: 'hidden' }}>
           <div id="yt-player" style={{ width: '100%', height: '100%' }} />
         </div>
       </div>
@@ -623,71 +617,49 @@ export default function VideoDetailPage() {
       <div className="card">
         <p style={{ fontWeight: 600, marginTop: 0 }}>Titres alternatifs</p>
         {titleOptions.length > 0 ? (
-          <>
-            <select
-              value={selectedTitleId}
-              onChange={(e) => setSelectedTitleId(e.target.value)}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 8 }}
-            >
-              <option value="">Titre par défaut ({video.name})</option>
-              {titleOptions.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Titre {t.label} : {t.title}
+          <div className="option-list" style={{ marginBottom: canEdit ? 12 : 0 }}>
+            <div className="card" style={{ background: 'var(--color-bg)' }}>
+              <span className="badge">Défaut</span>
+              <p style={{ margin: '6px 0 0' }}>{video.name}</p>
+            </div>
+            {titleOptions.map((t) => (
+              <div className="card" key={t.id} style={{ background: 'var(--color-bg)', position: 'relative' }}>
+                <span className="badge">Titre {t.label}</span>
+                {canEdit && (
+                  <button
+                    onClick={() => handleRemoveTitle(t.id)}
+                    className="secondary"
+                    style={{ position: 'absolute', top: 12, right: 12, width: 28, height: 28, padding: 0, borderRadius: 999, color: 'var(--color-error)' }}
+                  >
+                    ✕
+                  </button>
+                )}
+                <p style={{ margin: '6px 0 0', paddingRight: canEdit ? 28 : 0 }}>{t.title}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Aucun titre alternatif pour l&apos;instant — le nom de la vidéo sert de titre par défaut.</p>
+        )}
+
+        {canEdit && availableTitleLabels.length > 0 && (
+          <div className="row wrap">
+            <select value={newTitleLabel} onChange={(e) => setNewTitleLabel(e.target.value)} style={{ flex: 'none', width: 'auto' }}>
+              {availableTitleLabels.map((l) => (
+                <option key={l} value={l}>
+                  Titre {l}
                 </option>
               ))}
             </select>
-            {selectedTitleId && (
-              <p style={{ margin: '0 0 8px', fontWeight: 600 }}>
-                {titleOptions.find((t) => t.id === selectedTitleId)?.title}
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="muted">Aucun titre alternatif pour l&apos;instant.</p>
-        )}
-
-        {canEdit && (
-          <>
-            {titleOptions.length > 0 && (
-              <div className="row wrap" style={{ marginBottom: 8 }}>
-                {titleOptions.map((t) => (
-                  <span key={t.id} style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999 }}>
-                    {t.label}
-                    <button
-                      onClick={() => handleRemoveTitle(t.id)}
-                      style={{ background: 'transparent', color: '#c0392b', padding: '0 0 0 6px' }}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {availableTitleLabels.length > 0 && (
-              <div className="row wrap">
-                <select
-                  value={newTitleLabel}
-                  onChange={(e) => setNewTitleLabel(e.target.value)}
-                  style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
-                >
-                  {availableTitleLabels.map((l) => (
-                    <option key={l} value={l}>
-                      Titre {l}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={newTitleText}
-                  onChange={(e) => setNewTitleText(e.target.value)}
-                  placeholder="Nouveau titre..."
-                  style={{ flex: 1 }}
-                />
-                <button onClick={handleAddTitle} disabled={!newTitleText.trim()}>
-                  Ajouter
-                </button>
-              </div>
-            )}
-          </>
+            <input
+              value={newTitleText}
+              onChange={(e) => setNewTitleText(e.target.value)}
+              placeholder="Nouveau titre..."
+            />
+            <button onClick={handleAddTitle} disabled={!newTitleText.trim()}>
+              Ajouter
+            </button>
+          </div>
         )}
       </div>
 
@@ -700,7 +672,6 @@ export default function VideoDetailPage() {
               onChange={(e) => setDescriptionValue(e.target.value)}
               rows={4}
               placeholder="Description qui sera utilisée sur YouTube..."
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
             />
             <div style={{ height: 8 }} />
             <button onClick={handleSaveDescription} disabled={descriptionSaving}>
@@ -717,55 +688,54 @@ export default function VideoDetailPage() {
       <div className="card">
         <p style={{ fontWeight: 600, marginTop: 0 }}>Miniatures alternatives</p>
         {thumbnails.length > 0 ? (
-          <>
-            <select
-              value={selectedThumbnailId}
-              onChange={(e) => setSelectedThumbnailId(e.target.value)}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 8 }}
-            >
-              <option value="">Aucune sélectionnée</option>
-              {thumbnails.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Miniature {t.label}
-                </option>
-              ))}
-            </select>
-            {selectedThumbnail?.url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={selectedThumbnail.url}
-                alt={`Miniature ${selectedThumbnail.label}`}
-                style={{ width: '100%', borderRadius: 8, marginBottom: 8 }}
-              />
-            )}
-          </>
+          <div className="option-grid" style={{ marginBottom: canEdit ? 12 : 0 }}>
+            {thumbnails.map((t) => (
+              <div key={t.id} style={{ position: 'relative' }}>
+                {t.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={t.url}
+                    alt={`Miniature ${t.label}`}
+                    style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      borderRadius: 8,
+                      background: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  />
+                )}
+                <span className="badge" style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.6)', color: 'white' }}>
+                  {t.label}
+                </span>
+                {canEdit && (
+                  <button
+                    onClick={() => handleRemoveThumbnail(t.id)}
+                    className="secondary"
+                    style={{ position: 'absolute', top: 6, right: 6, width: 28, height: 28, padding: 0, borderRadius: 999, color: 'var(--color-error)' }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
           <p className="muted">Aucune miniature alternative pour l&apos;instant.</p>
         )}
 
         {canEdit && (
           <>
-            {thumbnails.length > 0 && (
-              <div className="row wrap" style={{ marginBottom: 8 }}>
-                {thumbnails.map((t) => (
-                  <span key={t.id} style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999 }}>
-                    {t.label}
-                    <button
-                      onClick={() => handleRemoveThumbnail(t.id)}
-                      style={{ background: 'transparent', color: '#c0392b', padding: '0 0 0 6px' }}
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
             {availableThumbnailLabels.length > 0 && (
               <div className="row wrap">
                 <select
                   value={newThumbnailLabel}
                   onChange={(e) => setNewThumbnailLabel(e.target.value)}
-                  style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+                  style={{ flex: 'none', width: 'auto' }}
                 >
                   {availableThumbnailLabels.map((l) => (
                     <option key={l} value={l}>
@@ -796,11 +766,11 @@ export default function VideoDetailPage() {
           {videoAccess.map((a) => (
             <span
               key={a.id}
-              style={{ background: '#e2e2ec', padding: '4px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ background: 'var(--color-border)', padding: '4px 10px', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 6 }}
             >
               {a.scope_type === 'ALL_TEAM' ? "Toute l'équipe" : groupById[a.group_id]?.name || 'Groupe'}
               {canAssign && (
-                <button onClick={() => handleRemoveAccess(a.id)} style={{ background: 'transparent', color: '#c0392b', padding: 0 }}>
+                <button onClick={() => handleRemoveAccess(a.id)} style={{ background: 'transparent', color: 'var(--color-error)', padding: 0 }}>
                   ✕
                 </button>
               )}
@@ -813,7 +783,7 @@ export default function VideoDetailPage() {
               <select
                 value={selectedGroupToAdd}
                 onChange={(e) => setSelectedGroupToAdd(e.target.value)}
-                style={{ flex: 1, padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
+                style={{ flex: 1 }}
               >
                 <option value="">Ajouter un groupe...</option>
                 {groups.map((g) => (
@@ -827,7 +797,7 @@ export default function VideoDetailPage() {
               </button>
             </div>
             <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
-              Gère les groupes eux-mêmes (créer, ajouter des membres) depuis <a href="/admin/groups">/admin/groups</a>.
+              Gère les groupes eux-mêmes (créer, ajouter des membres) depuis <Link href="/admin/groups">/admin/groups</Link>.
             </p>
           </>
         ) : (
@@ -852,7 +822,7 @@ export default function VideoDetailPage() {
                 <button
                   key={t}
                   onClick={() => setFeedbackType(t)}
-                  style={{ background: feedbackType === t ? '#3730a3' : '#e2e2ec', color: feedbackType === t ? 'white' : '#1c1c28' }}
+                  style={{ background: feedbackType === t ? 'var(--color-primary)' : 'var(--color-border)', color: feedbackType === t ? 'var(--color-primary-contrast)' : 'var(--color-text)' }}
                 >
                   {t === 'GLOBAL' ? 'Global' : t === 'TIMECODE' ? 'Timecode' : 'Plage'}
                 </button>
@@ -878,7 +848,7 @@ export default function VideoDetailPage() {
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', marginBottom: 12 }}
+              
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -892,7 +862,7 @@ export default function VideoDetailPage() {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={3}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
+              
             />
 
             <div style={{ height: 12 }} />
@@ -914,16 +884,16 @@ export default function VideoDetailPage() {
             <div className="card" key={f.id} style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <span style={{ background: cat?.color || '#ccc', color: 'white', padding: '2px 8px', borderRadius: 999, fontSize: 12 }}>
+                  <span style={{ background: cat?.color || 'var(--color-border)', color: 'white', padding: '2px 8px', borderRadius: 999, fontSize: 12 }}>
                     {cat?.icon} {cat?.name}
                   </span>{' '}
                   {f.type === 'TIMECODE' && (
-                    <button onClick={() => seekTo(f.start_time_seconds)} style={{ background: 'transparent', color: '#3730a3', padding: 0 }}>
+                    <button onClick={() => seekTo(f.start_time_seconds)} style={{ background: 'transparent', color: 'var(--color-primary)', padding: 0 }}>
                       {fmt(f.start_time_seconds)}
                     </button>
                   )}
                   {f.type === 'RANGE' && (
-                    <button onClick={() => seekTo(f.start_time_seconds)} style={{ background: 'transparent', color: '#3730a3', padding: 0 }}>
+                    <button onClick={() => seekTo(f.start_time_seconds)} style={{ background: 'transparent', color: 'var(--color-primary)', padding: 0 }}>
                       {fmt(f.start_time_seconds)} → {fmt(f.end_time_seconds)}
                     </button>
                   )}
@@ -937,7 +907,7 @@ export default function VideoDetailPage() {
               <p style={{ margin: '8px 0' }}>{f.content}</p>
 
               {(replies[f.id] || []).map((r) => (
-                <p key={r.id} className="muted" style={{ margin: '4px 0 4px 12px', borderLeft: '2px solid #e2e2ec', paddingLeft: 8 }}>
+                <p key={r.id} className="muted" style={{ margin: '4px 0 4px 12px', borderLeft: '2px solid var(--color-border)', paddingLeft: 8 }}>
                   {r.content}
                 </p>
               ))}

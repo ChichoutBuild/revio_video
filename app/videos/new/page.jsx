@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 
 export default function NewVideoPage() {
@@ -49,10 +50,10 @@ export default function NewVideoPage() {
   }
 
   return (
-    <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <main className="page">
       <h1>Nouvelle vidéo</h1>
 
-      <div className="card" style={{ background: '#eef0ff', borderColor: '#c7cbfa' }}>
+      <div className="card" style={{ background: 'var(--color-highlight-bg)', borderColor: 'var(--color-highlight-border)' }}>
         <p style={{ fontWeight: 600, marginTop: 0 }}>Comment obtenir le lien de ta vidéo ?</p>
         <ol style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
           <li>
@@ -80,11 +81,7 @@ export default function NewVideoPage() {
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ma nouvelle vidéo" />
         <div style={{ height: 12 }} />
         <label>Catégorie</label>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec' }}
-        >
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="LONG">Format long</option>
           <option value="SHORT">Short</option>
         </select>
@@ -102,7 +99,6 @@ export default function NewVideoPage() {
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           placeholder="Ex : fais particulièrement attention au passage entre 3:20 et 4:10."
-          style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #e2e2ec', fontFamily: 'inherit', fontSize: 15 }}
         />
         <div style={{ height: 12 }} />
         <button onClick={handleCreate} disabled={loading || !name || !youtubeInput}>
@@ -118,8 +114,8 @@ export default function NewVideoPage() {
             ✅ Vidéo créée : <strong>{result.name}</strong>
           </p>
           <p>
-            <a href={`/videos/${result.videoId}`}>Ouvrir la vidéo</a> ·{' '}
-            <a href="/videos">Voir la liste</a>
+            <Link href={`/videos/${result.videoId}`}>Ouvrir la vidéo</Link> ·{' '}
+            <Link href="/videos">Voir la liste</Link>
           </p>
         </div>
       )}

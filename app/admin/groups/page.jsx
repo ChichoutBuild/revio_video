@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 
 export default function AdminGroupsPage() {
@@ -98,7 +99,7 @@ export default function AdminGroupsPage() {
       <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
         <div className="card">
           <p>
-            Tu n&apos;es pas connecté. Va sur <a href="/activate">/activate</a>.
+            Tu n&apos;es pas connecté. Va sur <Link href="/activate">/activate</Link>.
           </p>
         </div>
       </main>

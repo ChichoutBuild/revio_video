@@ -1,7 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
+
+const STATUS_LABELS = {
+  BROUILLON: 'Brouillon',
+  A_VERIFIER: 'À vérifier',
+  EN_VERIFICATION: 'En vérification',
+  MODIFICATIONS_DEMANDEES: 'Modifications demandées',
+  APPROUVEE: 'Approuvée',
+  PUBLIEE: 'Publiée',
+  ARCHIVEE: 'Archivée',
+};
 
 export default function VideosListPage() {
   const [videos, setVideos] = useState(null);
@@ -48,18 +59,18 @@ export default function VideosListPage() {
   }, []);
 
   return (
-    <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <main className="page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Vidéos</h1>
-        <a href="/videos/new">
+        <Link href="/videos/new">
           <button>+ Nouvelle vidéo</button>
-        </a>
+        </Link>
       </div>
 
       {notLoggedIn && (
         <div className="card">
           <p>
-            Tu n&apos;es pas connecté. Va sur <a href="/activate">/activate</a> d&apos;abord.
+            Tu n&apos;es pas connecté. Va sur <Link href="/activate">/activate</Link> d&apos;abord.
           </p>
         </div>
       )}
@@ -69,14 +80,14 @@ export default function VideosListPage() {
 
       {videos &&
         videos.map((v) => (
-          <a href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="card">
               <p style={{ fontWeight: 600, margin: 0 }}>{v.name}</p>
               <p className="muted" style={{ margin: '4px 0 0' }}>
-                {v.category} · V{v.version?.version_number ?? '?'} · {v.version?.status ?? '—'}
+                {v.category} · V{v.version?.version_number ?? '?'} · {STATUS_LABELS[v.version?.status] || '—'}
               </p>
             </div>
-          </a>
+          </Link>
         ))}
     </main>
   );

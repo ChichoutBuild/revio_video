@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
 const TYPE_LABELS = {
@@ -120,7 +121,7 @@ export default function NotificationsPage() {
       <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
         <div className="card">
           <p>
-            Tu n&apos;es pas connecté. Va sur <a href="/activate">/activate</a>.
+            Tu n&apos;es pas connecté. Va sur <Link href="/activate">/activate</Link>.
           </p>
         </div>
       </main>
@@ -157,8 +158,8 @@ export default function NotificationsPage() {
               key={n.id}
               className="card"
               style={{
-                background: n.is_read ? 'white' : '#eef0ff',
-                borderColor: n.is_read ? '#e2e2ec' : '#c7cbfa',
+                background: n.is_read ? 'var(--color-surface)' : 'var(--color-highlight-bg)',
+                borderColor: n.is_read ? 'var(--color-border)' : 'var(--color-highlight-border)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -184,7 +185,7 @@ export default function NotificationsPage() {
                 </p>
               </div>
               {!n.is_read && (
-                <button onClick={() => markRead(n.id)} style={{ background: '#e2e2ec', color: '#1c1c28' }}>
+                <button onClick={() => markRead(n.id)} className="secondary">
                   Marquer lu
                 </button>
               )}

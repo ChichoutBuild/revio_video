@@ -43,7 +43,7 @@ export default function SupabaseTestPage() {
     <main style={{ maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
       <h1>Test de connexion Supabase</h1>
       <div className="card" style={{ marginTop: 16 }}>
-        <p style={{ color: isError ? '#c0392b' : '#1c1c28', fontWeight: isError ? 600 : 400 }}>
+        <p style={{ color: isError ? 'var(--color-error)' : 'var(--color-text)', fontWeight: isError ? 600 : 400 }}>
           {status}
         </p>
       </div>

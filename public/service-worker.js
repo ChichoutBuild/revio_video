@@ -1,5 +1,5 @@
-const CACHE_NAME = 'video-validation-app-v1';
-const ASSETS = ['/', '/manifest.json', '/icons/icon.svg'];
+const CACHE_NAME = 'revio-app-v2';
+const ASSETS = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
@@ -38,8 +38,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Nouvelle notification', {
       body: data.body || '',
-      icon: '/icons/icon.svg',
-      badge: '/icons/icon.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { url: data.url || '/notifications' },
     })
   );

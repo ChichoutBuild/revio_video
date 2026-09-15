@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 
 const STATUS_LABELS = {
@@ -86,7 +87,7 @@ export default function DashboardPage() {
       <main style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px' }}>
         <div className="card">
           <p>
-            Tu n&apos;es pas connecté. Va sur <a href="/activate">/activate</a>.
+            Tu n&apos;es pas connecté. Va sur <Link href="/activate">/activate</Link>.
           </p>
         </div>
       </main>
@@ -115,18 +116,21 @@ export default function DashboardPage() {
   };
 
   return (
-    <main style={{ maxWidth: 720, margin: '40px auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <main className="page" style={{ maxWidth: 720 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Dashboard</h1>
         <div className="row">
-          <a href="/notifications">
-            <button style={{ background: unreadCount > 0 ? '#c0392b' : '#e2e2ec', color: unreadCount > 0 ? 'white' : '#1c1c28' }}>
+          <Link href="/notifications">
+            <button
+              className={unreadCount > 0 ? '' : 'secondary'}
+              style={unreadCount > 0 ? { background: 'var(--color-error)' } : undefined}
+            >
               🔔 {unreadCount > 0 ? unreadCount : ''}
             </button>
-          </a>
-          <a href="/videos/new">
+          </Link>
+          <Link href="/videos/new">
             <button>+ Nouvelle vidéo</button>
-          </a>
+          </Link>
         </div>
       </div>
 
@@ -144,7 +148,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="card" style={{ flex: 1, minWidth: 140, textAlign: 'center' }}>
-          <p style={{ fontSize: 28, fontWeight: 700, margin: 0, color: counts.bloquees > 0 ? '#c0392b' : undefined }}>
+          <p style={{ fontSize: 28, fontWeight: 700, margin: 0, color: counts.bloquees > 0 ? 'var(--color-error)' : undefined }}>
             {counts.bloquees}
           </p>
           <p className="muted" style={{ margin: 0 }}>
@@ -163,7 +167,7 @@ export default function DashboardPage() {
         <p style={{ fontWeight: 600 }}>Toutes les vidéos</p>
         {rows.length === 0 && <p className="muted">Aucune vidéo pour l&apos;instant.</p>}
         {rows.map((v) => (
-          <a href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div
               className="card"
               style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
@@ -174,9 +178,9 @@ export default function DashboardPage() {
                   {v.category} · {STATUS_LABELS[v.status] || '—'}
                 </p>
               </div>
-              {v.blockingCount > 0 && <span style={{ color: '#c0392b', fontWeight: 600 }}>⚠ {v.blockingCount}</span>}
+              {v.blockingCount > 0 && <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>⚠ {v.blockingCount}</span>}
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </main>
