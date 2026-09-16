@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { applyTheme, getStoredTheme } from '../lib/theme';
+import { supabase } from '../lib/supabaseClient';
 
 function BackIcon() {
   return (
@@ -22,10 +23,21 @@ function SettingsIcon() {
   );
 }
 
+function LogoutIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
 export default function AppHeader() {
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [theme, setTheme] = useState('light');
+  const [loggingOut, setLoggingOut] = useState(false);
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -46,6 +58,21 @@ export default function AppHeader() {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     applyTheme(next);
+  }
+
+  async function handleLogout() {
+    if (!supabase) {
+      window.location.href = '/login';
+      return;
+    }
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Erreur lors de la déconnexion :', err);
+    } finally {
+      window.location.href = '/login';
+    }
   }
 
   return (
@@ -118,7 +145,8 @@ export default function AppHeader() {
             }}
           >
             <p style={{ fontWeight: 600, marginTop: 0, marginBottom: 12 }}>Réglages</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <span>Mode sombre</span>
               <button
                 onClick={toggleTheme}
@@ -134,6 +162,29 @@ export default function AppHeader() {
                 }}
               >
                 <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', display: 'block' }} />
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  background: 'transparent',
+                  color: 'var(--color-error, #DC2626)',
+                  border: 'none',
+                  padding: '6px 0',
+                  cursor: loggingOut ? 'default' : 'pointer',
+                  opacity: loggingOut ? 0.6 : 1,
+                }}
+              >
+                <LogoutIcon />
+                {loggingOut ? 'Déconnexion…' : 'Se déconnecter'}
               </button>
             </div>
           </div>
