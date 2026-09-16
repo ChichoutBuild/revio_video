@@ -4,11 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 
+const PRIORITY_LABELS = {
+  0: 'Pas important',
+  1: 'Normal',
+  2: 'Important',
+  3: 'Urgent',
+};
+
 export default function NewVideoPage() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('LONG');
   const [youtubeInput, setYoutubeInput] = useState('');
   const [notes, setNotes] = useState('');
+  const [priority, setPriority] = useState(0);
+  const [asap, setAsap] = useState(true);
+  const [estimatedPublishDate, setEstimatedPublishDate] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +44,14 @@ export default function NewVideoPage() {
       const res = await fetch('/api/videos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name, category, youtubeInput, notes }),
+        body: JSON.stringify({
+          name,
+          category,
+          youtubeInput,
+          notes,
+          priority,
+          estimatedPublishDate: asap ? null : estimatedPublishDate || null,
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -100,6 +117,34 @@ export default function NewVideoPage() {
           rows={3}
           placeholder="Ex : fais particulièrement attention au passage entre 3:20 et 4:10."
         />
+        <div style={{ height: 12 }} />
+        <label>Niveau d&apos;importance</label>
+        <select value={priority} onChange={(e) => setPriority(parseInt(e.target.value, 10))}>
+          <option value={0}>{PRIORITY_LABELS[0]}</option>
+          <option value={1}>{PRIORITY_LABELS[1]}</option>
+          <option value={2}>{PRIORITY_LABELS[2]}</option>
+          <option value={3}>{PRIORITY_LABELS[3]}</option>
+        </select>
+        <div style={{ height: 12 }} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={asap}
+            onChange={(e) => setAsap(e.target.checked)}
+          />
+          <span>À publier dès que possible</span>
+        </label>
+        {!asap && (
+          <>
+            <div style={{ height: 12 }} />
+            <label>Date estimée de publication</label>
+            <input
+              type="date"
+              value={estimatedPublishDate}
+              onChange={(e) => setEstimatedPublishDate(e.target.value)}
+            />
+          </>
+        )}
         <div style={{ height: 12 }} />
         <button onClick={handleCreate} disabled={loading || !name || !youtubeInput}>
           {loading ? 'Création...' : 'Créer'}

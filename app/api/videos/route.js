@@ -49,6 +49,33 @@ export async function POST(request) {
     );
   }
 
+  // Niveau d'importance : entier entre 0 (pas important) et 3 (urgent). Défaut 0.
+  // On accepte un nombre, un nombre sous forme de chaîne ("0".."3"), mais on
+  // s'assure toujours de la plage — sinon on retombe sur 0.
+  let priority = 0;
+  const rawPriority = body.priority;
+  if (typeof rawPriority === 'number' && Number.isInteger(rawPriority)) {
+    priority = rawPriority;
+  } else if (typeof rawPriority === 'string' && /^[0-3]$/.test(rawPriority.trim())) {
+    priority = parseInt(rawPriority.trim(), 10);
+  }
+  if (priority < 0 || priority > 3) priority = 0;
+
+  // Date estimée de publication : "AAAA-MM-JJ" ou null (= "dès que possible").
+  // On vérifie le format strict côté serveur — tout autre format est rejeté.
+  let estimatedPublishDate = null;
+  const rawDate = body.estimatedPublishDate;
+  if (typeof rawDate === 'string' && rawDate.trim() !== '') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate.trim())) {
+      estimatedPublishDate = rawDate.trim();
+    } else {
+      return NextResponse.json(
+        { error: "Date estimée de publication invalide. Format attendu : AAAA-MM-JJ, ou laisse vide pour « dès que possible »." },
+        { status: 400 }
+      );
+    }
+  }
+
   // L'organisation n'est jamais fournie par le client : elle est déduite du
   // profil de l'appelant, pour ne jamais faire confiance à une valeur envoyée
   // depuis le navigateur pour une donnée de cette sensibilité.
@@ -70,7 +97,15 @@ export async function POST(request) {
   try {
     ({ data: video, error: videoError } = await supabaseAdmin
       .from('videos')
-      .insert({ organization_id: profile.organization_id, name, category, notes, created_by: actor.id })
+      .insert({
+        organization_id: profile.organization_id,
+        name,
+        category,
+        notes,
+        priority,
+        estimated_publish_date: estimatedPublishDate,
+        created_by: actor.id,
+      })
       .select()
       .single());
   } catch (e) {

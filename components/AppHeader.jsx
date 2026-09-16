@@ -71,9 +71,29 @@ export default function AppHeader() {
         <BackIcon />
       </button>
 
-      <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', height: 28 }}>
-        <img src="/logo/logo-horizontal-light.svg" alt="REVIO" className="logo-light" style={{ height: 28 }} />
-        <img src="/logo/logo-horizontal-dark.svg" alt="REVIO" className="logo-dark" style={{ height: 28 }} />
+      <Link
+        href="/dashboard"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          height: 38,
+          flex: '0 1 auto',
+          maxWidth: '40vw',
+          overflow: 'hidden',
+        }}
+      >
+        <img
+          src="/logo/logo-horizontal-light.svg"
+          alt="REVIO"
+          className="logo-light"
+          style={{ height: 38, maxWidth: '40vw', width: 'auto' }}
+        />
+        <img
+          src="/logo/logo-horizontal-dark.svg"
+          alt="REVIO"
+          className="logo-dark"
+          style={{ height: 38, maxWidth: '40vw', width: 'auto' }}
+        />
       </Link>
 
       <div style={{ position: 'relative' }} ref={panelRef}>

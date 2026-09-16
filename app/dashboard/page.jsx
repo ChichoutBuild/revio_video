@@ -14,6 +14,20 @@ const STATUS_LABELS = {
   ARCHIVEE: 'Archivée',
 };
 
+const PRIORITY_LABELS = {
+  0: null,
+  1: 'Normal',
+  2: 'Important',
+  3: 'Urgent',
+};
+
+const PRIORITY_COLORS = {
+  0: '#d1d5db', // gris clair / neutre
+  1: '#eab308', // jaune
+  2: '#f97316', // orange
+  3: '#ef4444', // rouge
+};
+
 export default function DashboardPage() {
   const [rows, setRows] = useState(null);
   const [notLoggedIn, setNotLoggedIn] = useState(false);
@@ -32,9 +46,13 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data: videos, error: videosError } = await supabase
+      // Tri du dashboard : vidéos "dès que possible" (date estimée NULL) en premier,
+// puis par priorité décroissante, puis par date de création décroissante.
+const { data: videos, error: videosError } = await supabase
         .from('videos')
-        .select('id, name, category, current_version_id, created_at')
+        .select('id, name, category, current_version_id, priority, estimated_publish_date, created_at')
+        .order('estimated_publish_date', { ascending: true, nullsFirst: true })
+        .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       if (videosError) {
         setError(videosError.message);
@@ -166,22 +184,40 @@ export default function DashboardPage() {
       <div>
         <p style={{ fontWeight: 600 }}>Toutes les vidéos</p>
         {rows.length === 0 && <p className="muted">Aucune vidéo pour l&apos;instant.</p>}
-        {rows.map((v) => (
-          <Link href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div
-              className="card"
-              style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <div>
-                <p style={{ fontWeight: 600, margin: 0 }}>{v.name}</p>
-                <p className="muted" style={{ margin: '4px 0 0' }}>
-                  {v.category} · {STATUS_LABELS[v.status] || '—'}
-                </p>
+        {rows.map((v) => {
+          const priorityKey = v.priority != null ? v.priority : 0;
+          const priorityColor = PRIORITY_COLORS[priorityKey] || PRIORITY_COLORS[0];
+          const priorityLabel = PRIORITY_LABELS[priorityKey];
+          const publishLabel = v.estimated_publish_date
+            ? new Date(v.estimated_publish_date).toLocaleDateString('fr-FR')
+            : 'Dès que possible';
+          const extraBits = [];
+          extraBits.push(publishLabel);
+          if (priorityLabel) extraBits.push(priorityLabel);
+          return (
+            <Link href={`/videos/${v.id}`} key={v.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div
+                className="card"
+                style={{
+                  marginBottom: 8,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderLeft: `6px solid ${priorityColor}`,
+                  paddingLeft: 12,
+                }}
+              >
+                <div>
+                  <p style={{ fontWeight: 600, margin: 0 }}>{v.name}</p>
+                  <p className="muted" style={{ margin: '4px 0 0' }}>
+                    {v.category} · {STATUS_LABELS[v.status] || '—'} · {extraBits.join(' · ')}
+                  </p>
+                </div>
+                {v.blockingCount > 0 && <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>⚠ {v.blockingCount}</span>}
               </div>
-              {v.blockingCount > 0 && <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>⚠ {v.blockingCount}</span>}
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </main>
   );
