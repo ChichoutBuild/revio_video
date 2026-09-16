@@ -62,7 +62,7 @@ export default function AppHeader() {
 
   async function handleLogout() {
     if (!supabase) {
-      window.location.href = '/login';
+      window.location.href = '/dashboard';
       return;
     }
     setLoggingOut(true);
@@ -71,7 +71,7 @@ export default function AppHeader() {
     } catch (err) {
       console.error('Erreur lors de la déconnexion :', err);
     } finally {
-      window.location.href = '/login';
+      window.location.href = '/dashboard';
     }
   }
 
