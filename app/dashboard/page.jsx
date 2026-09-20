@@ -46,12 +46,14 @@ export default function DashboardPage() {
         return;
       }
 
-      // Tri du dashboard : vidéos "dès que possible" (date estimée NULL) en premier,
-// puis par priorité décroissante, puis par date de création décroissante.
-const { data: videos, error: videosError } = await supabase
+      // Tri du dashboard : d'abord les vidéos avec une date de publication
+      // estimée (les plus proches en premier), puis les vidéos "dès que
+      // possible" (date NULL) à la fin — et à date égale, la priorité la
+      // plus haute d'abord.
+      const { data: videos, error: videosError } = await supabase
         .from('videos')
         .select('id, name, category, current_version_id, priority, estimated_publish_date, created_at')
-        .order('estimated_publish_date', { ascending: true, nullsFirst: true })
+        .order('estimated_publish_date', { ascending: true, nullsFirst: false })
         .order('priority', { ascending: false })
         .order('created_at', { ascending: false });
       if (videosError) {
@@ -90,11 +92,15 @@ const { data: videos, error: videosError } = await supabase
       setUnreadCount(unread || 0);
 
       setRows(
-        (videos || []).map((v) => ({
-          ...v,
-          status: versionsById[v.current_version_id]?.status || null,
-          blockingCount: blockingCountByVersion[v.current_version_id] || 0,
-        }))
+        (videos || [])
+          .map((v) => ({
+            ...v,
+            status: versionsById[v.current_version_id]?.status || null,
+            blockingCount: blockingCountByVersion[v.current_version_id] || 0,
+          }))
+          // Les vidéos archivées restent consultables sur /videos, mais
+          // n'ont plus leur place sur le dashboard une fois classées.
+          .filter((v) => v.status !== 'ARCHIVEE')
       );
     }
     run();

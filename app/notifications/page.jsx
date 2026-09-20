@@ -81,11 +81,30 @@ export default function NotificationsPage() {
         return;
       }
 
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      // On s'assure nous-mêmes qu'un service worker est enregistré, plutôt
+      // que de dépendre uniquement de l'enregistrement passif fait dans
+      // layout.jsx (qui pourrait ne pas encore être terminé à ce moment).
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/service-worker.js');
+      }
+
+      // "serviceWorker.ready" peut ne JAMAIS se résoudre si l'activation
+      // échoue silencieusement — on ajoute donc une limite de temps pour ne
+      // jamais rester bloqué indéfiniment sur "Activation...".
+      registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Le service worker met trop de temps à démarrer. Recharge complètement la page (pas juste revenir dessus) et réessaie.")), 8000)
+        ),
+      ]);
+
+      const existingSubscription = await registration.pushManager.getSubscription();
+      const subscription =
+        existingSubscription || (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        }));
       const json = subscription.toJSON();
 
       const { data: sessionData } = await supabase.auth.getSession();
